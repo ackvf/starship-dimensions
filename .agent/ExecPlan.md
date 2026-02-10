@@ -11,21 +11,33 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 ## Progress
 
 - [x] (2026-02-10 00:00Z) Rewrite ExecPlan to comply with PLANS.md and capture confirmed scope and decisions.
-- [ ] Establish data model and parser for ship files in Markdown with YAML frontmatter.
-- [ ] Add several example ship files with dummy image placeholders.
-- [ ] Build fleet view with pan and zoom plus scale-accurate rendering.
-- [ ] Add drag and drop for ship's silhouettes overlays with duplication.
-- [ ] Implement filtering, highlighting, and selection details modal.
-- [ ] Add upload flow for ship files and document the ship format.
-- [ ] Validate behaviors with local run and tests, then record outcomes.
-- [ ] Write an Agent Skill for creating ship files.
+- [x] (2026-02-10 05:31Z) Confirmed repository-level AGENTS.md instructions and reviewed this ExecPlan before implementation work.
+- [x] (2026-02-10 06:15Z) Established typed ship data model, parser, and loader for Markdown files with YAML frontmatter.
+- [x] (2026-02-10 06:17Z) Added bundled example ship markdown files with dummy placeholder images.
+- [x] (2026-02-10 06:34Z) Built interactive fleet view with scale-accurate rendering and pan/zoom controls.
+- [x] (2026-02-10 06:34Z) Added drag-and-drop for ships and duplicable silhouette overlays.
+- [x] (2026-02-10 06:34Z) Implemented universe/tag/size filtering, highlighting, and ship details modal.
+- [x] (2026-02-10 06:38Z) Added upload parsing flow with inline errors and documented the ship file format in docs and UI.
+- [x] (2026-02-10 06:43Z) Validated with check/lint/build and server-side tests; browser test project is blocked by missing Playwright browser binaries.
+- [x] (2026-02-10 06:38Z) Wrote an agent skill with templates and validation checklist for authoring ship files.
 
 ## Surprises & Discoveries
 
-- Observation: None yet.
-   Evidence: Not applicable.
+- Observation: Playwright browser binaries are not preinstalled in the environment, so the full `pnpm test` command cannot launch browser tests.
+   Evidence: `pnpm test` fails with `Executable doesn't exist ... please run playwright install`, while `pnpm exec vitest --project server --run` passes.
+
+- Observation: The repository includes both [.agent/ExecPlan.md](/.agent/ExecPlan.md) and [.agent/PLANS.md](/.agent/PLANS.md), so plan updates should be recorded directly in this file as work progresses.
+   Evidence: Verified by inspecting root instructions and reading both documents during repository exploration.
+
+
+- Observation: Direct dependency installation from npm registry failed with HTTP 403 in this environment, so YAML parsing was implemented with an in-repo focused parser for the supported ship schema subset.
+   Evidence: `pnpm add yaml marked` returned `ERR_PNPM_FETCH_403 ... No authorization header was set`.
+
+- Observation: Browser-based component tests are blocked because no display server is available for Playwright in this environment.
+   Evidence: `pnpm test` failed in the client project with `Missing X server to start the headful browser` while server-side tests passed.
 
 ## Decision Log
+
 
 - Decision: Use SvelteKit in the existing root workspace as the implementation target.
    Rationale: The repository already contains a SvelteKit app scaffolded for development.
@@ -42,9 +54,21 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 - Decision: In this initial version, to implement example ships,use a service for placeholder images and allow users to provide their own image URLs in ship files. Image placeholder service that gives a placeholder image of a given size and color `/size/bg/fg`, e.g. https://dummyimage.com/160x100/f00/fff .
 
 
+- Decision: Use native HTML controls with project styling for this milestone instead of introducing additional shadcn component packages.
+   Rationale: Network restrictions prevented installing new component packages, and the core behavior requirements are satisfied with existing stack primitives.
+   Date/Author: 2026-02-10, GPT-5.2-Codex.
+
+- Decision: Implement a minimal frontmatter parser tailored to the documented ship schema.
+   Rationale: External YAML dependencies were unavailable due registry restrictions; a focused parser keeps upload and bundled parsing functional.
+   Date/Author: 2026-02-10, GPT-5.2-Codex.
+
 ## Outcomes & Retrospective
 
-No outcomes yet. This will be updated after each milestone with what was achieved and what remains.
+Completed the end-to-end starship comparison app milestone: bundled ship parsing and loading, interactive fleet canvas (pan/zoom/drag), silhouette duplication, filtering and detail modal, upload flow with error handling, ship format documentation, and a dedicated ship-authoring agent skill. Remaining gaps are refinements rather than scope items: markdown-to-HTML rendering is currently plain text, and browser component tests require CI display configuration.
+
+Lessons learned: keeping the parser format intentionally narrow made behavior predictable under dependency restrictions, and most user value came from interaction loop quality (pan, drag, scale cues) rather than visual polish.
+
+
 
 ## Context and Orientation
 
@@ -60,7 +84,7 @@ Implement filtering and highlighting UI controls, such as checkboxes or chips fo
 
 ## Concrete Steps
 
-1. Define the ship schema and parser in [src/lib/ships](/src/lib/ships). Create a module that reads Markdown files, extracts YAML frontmatter, validates required fields, and produces a typed `Ship` object. Include example ship files in [src/lib/ships/data](/src/lib/ships/data) so the UI has initial content.
+1. Define the ship schema and parser in [src/lib/ships](/src/lib/ships). Create a module that reads Markdown files, extracts YAML frontmatter, validates required fields, and produces a typed `Ship` object. Include example ship files in [docs/ships](/docs/ships) so the UI has initial content.
 
 2. Add a ship loader and upload flow. The loader should read the bundled example files at startup and merge them with any user uploaded files in memory. The upload flow should accept Markdown files, parse them, and present errors in the UI when required fields are missing.
 
@@ -145,8 +169,12 @@ Define the following data structures in [src/lib/ships/types.ts](/src/lib/ships/
          descriptionMarkdown?: string;
       }
 
-The parser in [src/lib/ships/parseShip.ts](/src/lib/ships/parseShip.ts) will accept Markdown with YAML frontmatter and return a `Ship` or a structured error. The loader in [src/lib/ships/loadShips.ts](/src/lib/ships/loadShips.ts) will combine bundled ships from [src/lib/ships/data](/src/lib/ships/data) with user uploads.
+The parser in [src/lib/ships/parseShip.ts](/src/lib/ships/parseShip.ts) will accept Markdown with YAML frontmatter and return a `Ship` or a structured error. The loader in [src/lib/ships/loadShips.ts](/src/lib/ships/loadShips.ts) will combine bundled ships from [docs/ships](/docs/ships) with user uploads.
 
 Note on images: user uploads must reference external URLs. The app may use owner curated images stored under [static](/static) for bundled ships.
 
 Plan change note: Rewrote the ExecPlan to follow [.agent/PLANS.md](/.agent/PLANS.md), add the mandatory living sections, and encode confirmed decisions and full feature scope so the plan is self contained for a novice.
+
+Plan change note (2026-02-10 05:31Z, GPT-5.2-Codex): Recorded repository exploration progress and a discovery confirming the ExecPlan/PLANS workflow so implementation starts with current living-document state.
+
+Plan change note (2026-02-10 06:44Z, GPT-5.2-Codex): Completed all remaining implementation milestones, updated progress/discoveries/decisions/outcomes with validation evidence, and documented environment constraints encountered during execution.
