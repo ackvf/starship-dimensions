@@ -1,3 +1,9 @@
+# ExecPlans
+
+When writing complex features or significant refactors, use an ExecPlan (as described in .agent/PLANS.md) from design to implementation. You can find ExecPlans in the .agent/ folder.
+
+# MCP
+
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
 
 ## Available MCP Tools:
