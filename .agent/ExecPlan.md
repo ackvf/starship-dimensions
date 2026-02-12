@@ -11,19 +11,19 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 ## Progress
 
 - [x] (2026-02-10 00:00Z) Rewrite ExecPlan to comply with PLANS.md and capture confirmed scope and decisions.
-- [ ] Establish data model and parser for ship files in Markdown with YAML frontmatter.
-- [ ] Add several example ship files with dummy image placeholders.
-- [ ] Build fleet view with pan and zoom plus scale-accurate rendering.
-- [ ] Add drag and drop for ship's silhouettes overlays with duplication.
-- [ ] Implement filtering, highlighting, and selection details modal.
-- [ ] Add upload flow for ship files and document the ship format.
+- [x] (2026-02-10 00:40Z) Established data model and parser for ship files in Markdown with YAML frontmatter.
+- [x] (2026-02-10 00:42Z) Added bundled example ship files with dummy image placeholders.
+- [x] (2026-02-10 00:55Z) Built fleet view with pan and zoom plus scale-accurate rendering.
+- [x] (2026-02-10 00:56Z) Added drag and drop for ship and silhouette overlays with duplication.
+- [x] (2026-02-10 01:00Z) Implemented filtering, highlighting, and selection details modal.
+- [x] (2026-02-10 01:02Z) Added upload flow for ship files and documented the ship format.
 - [ ] Validate behaviors with local run and tests, then record outcomes.
-- [ ] Write an Agent Skill for creating ship files.
+- [x] (2026-02-10 01:04Z) Wrote an Agent Skill for creating ship files.
 
 ## Surprises & Discoveries
 
-- Observation: None yet.
-   Evidence: Not applicable.
+- Observation: shadcn-svelte CLI required non-interactive invocation (`add --yes`) in this environment.
+   Evidence: Interactive mode could not be completed in non-blocking terminal sessions.
 
 ## Decision Log
 
@@ -44,7 +44,7 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 
 ## Outcomes & Retrospective
 
-No outcomes yet. This will be updated after each milestone with what was achieved and what remains.
+Implemented all planned product behaviors and supporting docs/skill. Remaining work is running validation commands and recording final verification details.
 
 ## Context and Orientation
 
