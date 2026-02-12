@@ -11,19 +11,19 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 ## Progress
 
 - [x] (2026-02-10 00:00Z) Rewrite ExecPlan to comply with PLANS.md and capture confirmed scope and decisions.
-- [ ] Establish data model and parser for ship files in Markdown with YAML frontmatter.
-- [ ] Add several example ship files with dummy image placeholders.
-- [ ] Build fleet view with pan and zoom plus scale-accurate rendering.
-- [ ] Add drag and drop for ship's silhouettes overlays with duplication.
-- [ ] Implement filtering, highlighting, and selection details modal.
-- [ ] Add upload flow for ship files and document the ship format.
-- [ ] Validate behaviors with local run and tests, then record outcomes.
-- [ ] Write an Agent Skill for creating ship files.
+- [x] Establish data model and parser for ship files in Markdown with YAML frontmatter.
+- [x] Add several example ship files with dummy image placeholders.
+- [x] Build fleet view with pan and zoom plus scale-accurate rendering.
+- [x] Add drag and drop for ship's silhouettes overlays with duplication.
+- [x] Implement filtering, highlighting, and selection details modal.
+- [x] Add upload flow for ship files and document the ship format.
+- [x] Validate behaviors with local run and tests, then record outcomes.
+- [x] Write an Agent Skill for creating ship files.
 
 ## Surprises & Discoveries
 
-- Observation: None yet.
-   Evidence: Not applicable.
+- Observation: A single Svelte route can support performant drag operations by updating plain world coordinates and applying one container transform for pan/zoom.
+   Evidence: The implemented fleet view drags ships and silhouettes without requiring canvas redraw infrastructure.
 
 ## Decision Log
 
@@ -44,7 +44,7 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 
 ## Outcomes & Retrospective
 
-No outcomes yet. This will be updated after each milestone with what was achieved and what remains.
+Implemented end-to-end starship comparison behavior with typed ship parsing, bundled sample data, upload parsing with error reporting, fleet rendering with scale-based sizing, pan/zoom + drag interaction, silhouette duplication, filter/highlight controls, a details dialog, and ship format docs plus an authoring skill. Remaining improvements are optional polish items such as persistent uploads and richer markdown styling.
 
 ## Context and Orientation
 
