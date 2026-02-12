@@ -1,42 +1,24 @@
-# sv
+# Starship Dimensions
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Interactive SvelteKit app for comparing sci-fi ships at scale.
 
-## Creating a project
+## Features
 
-If you're seeing this, you've probably already done this step. Congrats!
+- Fleet canvas with pan, zoom, drag, and fit/reset controls.
+- Ship silhouettes that can be spawned and dragged independently.
+- Real-time filters (universe, tags, and size buckets) with highlight/dim behavior.
+- Details modal with gallery images, links, and rendered Markdown description.
+- Markdown ship upload flow with frontmatter validation and UI error reporting.
 
-```sh
-# create a new project
-npx sv create my-app
-```
+## Ship file documentation
 
-To recreate this project with the same configuration:
+See [SHIP_FILE_FORMAT.md](./SHIP_FILE_FORMAT.md) for the complete format and an example.
 
-```sh
-# recreate this project
-pnpm dlx sv create --template minimal --types ts --add eslint vitest="usages:unit,component" tailwindcss="plugins:none" sveltekit-adapter="adapter:vercel" devtools-json mcp="ide:vscode,other+setup:local" --install pnpm myapp
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Development
 
 ```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+pnpm install
+pnpm dev
 ```
 
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+Then open <http://localhost:5173>.

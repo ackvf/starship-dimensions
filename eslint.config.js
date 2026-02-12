@@ -22,6 +22,13 @@ export default defineConfig(
 			"no-undef": 'off'
 		}
 	},
+
+	{
+		files: ['src/lib/components/ui/button/button.svelte'],
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
+		}
+	},
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		languageOptions: {
