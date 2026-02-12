@@ -11,19 +11,22 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 ## Progress
 
 - [x] (2026-02-10 00:00Z) Rewrite ExecPlan to comply with PLANS.md and capture confirmed scope and decisions.
-- [ ] Establish data model and parser for ship files in Markdown with YAML frontmatter.
-- [ ] Add several example ship files with dummy image placeholders.
-- [ ] Build fleet view with pan and zoom plus scale-accurate rendering.
-- [ ] Add drag and drop for ship's silhouettes overlays with duplication.
-- [ ] Implement filtering, highlighting, and selection details modal.
-- [ ] Add upload flow for ship files and document the ship format.
-- [ ] Validate behaviors with local run and tests, then record outcomes.
-- [ ] Write an Agent Skill for creating ship files.
+- [x] (2026-02-10 06:30Z) Establish data model and parser for ship files in Markdown with YAML frontmatter.
+- [x] (2026-02-10 06:34Z) Add several example ship files with dummy image placeholders.
+- [x] (2026-02-10 06:44Z) Build fleet view with pan and zoom plus scale-accurate rendering.
+- [x] (2026-02-10 06:44Z) Add drag and drop for ship silhouettes overlays with duplication.
+- [x] (2026-02-10 06:44Z) Implement filtering, highlighting, and selection details modal.
+- [x] (2026-02-10 06:46Z) Add upload flow for ship files and document the ship format.
+- [x] (2026-02-10 06:52Z) Validate behaviors with local checks/tests and browser screenshot.
+- [x] (2026-02-10 06:46Z) Write an Agent Skill for creating ship files.
 
 ## Surprises & Discoveries
 
-- Observation: None yet.
-   Evidence: Not applicable.
+- Observation: The generated shadcn setup assumed CSS imports that were not present in dependencies (`tw-animate-css`, `@fontsource-variable/jetbrains-mono`) and included `shadcn/tailwind.css` which is not resolvable in this repo.
+   Evidence: Local `pnpm dev` logs failed until dependencies/imports were corrected.
+
+- Observation: Browser component tests require Playwright browsers that are not preinstalled in this environment.
+   Evidence: `pnpm test` fails with `Executable doesn't exist` for Playwright Chromium.
 
 ## Decision Log
 
@@ -44,7 +47,7 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 
 ## Outcomes & Retrospective
 
-No outcomes yet. This will be updated after each milestone with what was achieved and what remains.
+Implemented the full first version of the app from schema/parsing to interactive UI and documentation. The app now loads bundled markdown ships, accepts uploaded markdown files, and supports scale-based rendering, drag, silhouettes, filtering, and details. Static checks (`pnpm check`, `pnpm lint`) are green. Unit/browser test execution remains blocked in this environment because Playwright browsers are not installed.
 
 ## Context and Orientation
 
