@@ -20,11 +20,15 @@
 	"devDependencies": {
 		"@eslint/compat": "^2.0.2",
 		"@eslint/js": "^9.39.2",
+		"@internationalized/date": "^3.11.0",
+		"@lucide/svelte": "^0.561.0",
+		"@stylistic/eslint-plugin": "^5.8.0",
 		"@sveltejs/adapter-vercel": "^6.3.1",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@types/node": "^22",
 		"@vitest/browser-playwright": "^4.0.18",
+		"bits-ui": "^2.15.5",
 		"eslint": "^9.39.2",
 		"eslint-plugin-svelte": "^3.14.0",
 		"globals": "^17.3.0",
@@ -40,6 +44,7 @@
 	"dependencies": {
 		"@fontsource-variable/jetbrains-mono": "^5.2.8",
 		"@tailwindcss/vite": "^4.1.18",
+		"mode-watcher": "^1.1.0",
 		"shadcn": "^3.8.4",
 		"svelte": "^5.49.2",
 		"tailwind-variants": "^3.2.2",

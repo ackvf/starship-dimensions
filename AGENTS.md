@@ -8,6 +8,10 @@ Once an ExecPlan is finished, move it to the `.agent/archive/` directory.
 
 Whenever there is a README.md file in a directory, be sure to read it and follow any instructions or guidelines it contains.
 
+# Shadcn UI Components
+
+You should use shadcn-svelte UI Components for consistency. When adding or updating components, follow the guidance in `.agent/skills/shadcn-svelte/SKILL.md` for proper installation and usage with pnpm.
+
 # MCP
 
 You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:

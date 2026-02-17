@@ -1,5 +1,16 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { resolve } from '$app/paths';
+	import { Button } from '$lib/components/ui/button';
+	import {
+		DropdownMenu,
+		DropdownMenuCheckboxGroup,
+		DropdownMenuCheckboxItem,
+		DropdownMenuContent,
+		DropdownMenuLabel,
+		DropdownMenuItem,
+		DropdownMenuTrigger
+	} from '$lib/components/ui/dropdown-menu';
 	import { loadBundledShips, parseUploadedShipFile } from '$lib/ships';
 	import type { Ship } from '$lib/ships';
 
@@ -28,6 +39,17 @@
 	let panX = 160;
 	let panY = 220;
 	const metersToPixels = 0.18;
+	let fleetContainer: HTMLElement | null = null;
+	let minScale = 0.05;
+
+	const attachFleetContainer = (node: HTMLElement) => {
+		fleetContainer = node;
+		return () => {
+			if (fleetContainer === node) {
+				fleetContainer = null;
+			}
+		};
+	};
 
 	let dragState:
 		| {
@@ -45,19 +67,37 @@
 	let panOriginX = 0;
 	let panOriginY = 0;
 
-	let universeFilter = 'all';
-	let tagFilter = 'all';
+	let universeFilter: string[] = [];
+	let previewUniverseFilter: string = '';
+	let tagFilter: string[] = [];
+	let previewTagFilter: string = '';
 	let minLength = 0;
 	let maxLength = 5000;
 	let activeOnly = false;
+
+	const hasActiveFilters = () =>
+		universeFilter.length > 0 || tagFilter.length > 0 || minLength > 0 || maxLength < 5000;
+
+	const getUniverseLabel = () => {
+		if (!universeFilter.length) return 'All universes';
+		if (universeFilter.length === 1) return universeFilter[0];
+		return `${universeFilter.length} universes`;
+	};
+	const getTagLabel = () => {
+		if (!tagFilter.length) return 'All tags';
+		if (tagFilter.length === 1) return tagFilter[0];
+		return `${tagFilter.length} tags`;
+	};
 
 	$: universes = [...new Set(ships.map((item) => item.ship.universe))].sort();
 	$: tags = [...new Set(ships.flatMap((item) => item.ship.tags))].sort();
 
 	$: filteredShips = ships.filter((item) => {
+		const activeUniverseFilter = previewUniverseFilter || universeFilter;
+		const activeTagFilter = previewTagFilter || tagFilter;
 		const ship = item.ship;
-		const universeMatches = universeFilter === 'all' || ship.universe === universeFilter;
-		const tagMatches = tagFilter === 'all' || ship.tags.includes(tagFilter);
+		const universeMatches = activeUniverseFilter.length === 0 || activeUniverseFilter.includes(ship.universe);
+		const tagMatches = activeTagFilter.length === 0 || ship.tags.some((tag) => activeTagFilter.includes(tag));
 		const lengthMatches = ship.lengthMeters >= minLength && ship.lengthMeters <= maxLength;
 		return universeMatches && tagMatches && lengthMatches;
 	});
@@ -68,6 +108,130 @@
 	const getVisualHeight = (ship: Ship): number => {
 		const ratio = ship.heightMeters ? ship.heightMeters / ship.lengthMeters : 0.22;
 		return Math.max(getVisualWidth(ship) * ratio, 28);
+	};
+
+	const getFleetBounds = () => {
+		if (!ships.length) return null;
+		const widths = ships.map((item) => getVisualWidth(item.ship));
+		const heights = ships.map((item) => getVisualHeight(item.ship));
+		const minX = Math.min(...ships.map((item, idx) => item.x - widths[idx] / 2));
+		const maxX = Math.max(...ships.map((item, idx) => item.x + widths[idx] / 2));
+		const minY = Math.min(...ships.map((item, idx) => item.y - heights[idx] / 2));
+		const maxY = Math.max(...ships.map((item, idx) => item.y + heights[idx] / 2));
+		return { minX, maxX, minY, maxY };
+	};
+
+	const updateMinScale = async () => {
+		await tick();
+		if (!fleetContainer) return;
+		const bounds = getFleetBounds();
+		if (!bounds) {
+			minScale = 0.05;
+			return;
+		}
+		const fleetWidth = Math.max(1, bounds.maxX - bounds.minX);
+		const fleetHeight = Math.max(1, bounds.maxY - bounds.minY);
+		const containerWidth = Math.max(1, fleetContainer.clientWidth);
+		const containerHeight = Math.max(1, fleetContainer.clientHeight);
+		const fitScale = Math.min(containerWidth / fleetWidth, containerHeight / fleetHeight);
+		minScale = Math.max(0.05, fitScale * 0.5);
+	};
+
+	const centerFleetAtScale = (targetScale: number) => {
+		if (!fleetContainer) return;
+		const bounds = getFleetBounds();
+		if (!bounds) return;
+		const containerWidth = Math.max(1, fleetContainer.clientWidth);
+		const containerHeight = Math.max(1, fleetContainer.clientHeight);
+		const centerX = (bounds.minX + bounds.maxX) / 2;
+		const centerY = (bounds.minY + bounds.maxY) / 2;
+		scale = targetScale;
+		panX = containerWidth / 2 - centerX * scale;
+		panY = containerHeight / 2 - centerY * scale;
+	};
+
+	const layoutFleet = (seedShips: Array<{ id: string; ship: Ship }>): FleetItem[] => {
+		const byGroup: Record<string, Array<{ id: string; ship: Ship }>> = {};
+		for (const seed of seedShips) {
+			const segment = seed.ship.fleetSegment ?? 'universe';
+			const key = `${seed.ship.universe}::${segment}`;
+			const group = byGroup[key] ?? [];
+			group.push(seed);
+			byGroup[key] = group;
+		}
+		const groupKeys = Object.keys(byGroup).sort((a, b) => a.localeCompare(b));
+		const items: FleetItem[] = [];
+		const groupSpacing = 160;
+		const rowMaxWidth = 1400;
+		let cursorX = 0;
+		let cursorY = 0;
+		let rowHeight = 0;
+
+		for (const key of groupKeys) {
+			const groupShips = byGroup[key] ?? [];
+			const placed: Array<{ id: string; ship: Ship; x: number; y: number; width: number; height: number }> = [];
+			const sorted = [...groupShips].sort((a, b) => b.ship.lengthMeters - a.ship.lengthMeters);
+
+			for (const seed of sorted) {
+				const width = getVisualWidth(seed.ship);
+				const height = getVisualHeight(seed.ship);
+				let x = 0;
+				let y = 0;
+				let placedOk = false;
+				const padding = 18 + Math.min(width, height) * 0.08;
+
+				for (let attempt = 0; attempt < 1200; attempt += 1) {
+					const angle = attempt * 0.55;
+					const radius = 12 + attempt * 6;
+					x = Math.cos(angle) * radius;
+					y = Math.sin(angle) * radius;
+					const overlaps = placed.some((other) =>
+						Math.abs(x - other.x) < (width + other.width) / 2 + padding &&
+						Math.abs(y - other.y) < (height + other.height) / 2 + padding
+					);
+					if (!overlaps) {
+						placedOk = true;
+						break;
+					}
+				}
+
+				if (!placedOk && placed.length) {
+					x = placed[placed.length - 1].x + width + padding;
+					y = placed[placed.length - 1].y;
+				}
+
+				placed.push({ id: seed.id, ship: seed.ship, x, y, width, height });
+			}
+
+			const minX = Math.min(...placed.map((item) => item.x - item.width / 2));
+			const maxX = Math.max(...placed.map((item) => item.x + item.width / 2));
+			const minY = Math.min(...placed.map((item) => item.y - item.height / 2));
+			const maxY = Math.max(...placed.map((item) => item.y + item.height / 2));
+			const groupWidth = maxX - minX;
+			const groupHeight = maxY - minY;
+
+			if (cursorX && cursorX + groupWidth > rowMaxWidth) {
+				cursorX = 0;
+				cursorY += rowHeight + groupSpacing;
+				rowHeight = 0;
+			}
+
+			const offsetX = cursorX - minX;
+			const offsetY = cursorY - minY;
+			for (const item of placed) {
+				items.push({
+					id: item.id,
+					ship: item.ship,
+					x: item.x + offsetX,
+					y: item.y + offsetY
+				});
+			}
+
+			cursorX += groupWidth + groupSpacing;
+			rowHeight = Math.max(rowHeight, groupHeight);
+		}
+
+		return items;
 	};
 
 	const resetView = () => {
@@ -93,6 +257,17 @@
 	const startDrag = (event: PointerEvent, type: 'ship' | 'silhouette', id: string, x: number, y: number) => {
 		event.stopPropagation();
 		event.preventDefault();
+		if (type === 'ship') {
+			const created = addSilhouette(id, { x, y });
+			if (!created) return;
+			dragState = {
+				type: 'silhouette',
+				id: created,
+				deltaX: event.clientX / scale - x,
+				deltaY: event.clientY / scale - y
+			};
+			return;
+		}
 		dragState = {
 			type,
 			id,
@@ -133,13 +308,14 @@
 		dragState = null;
 	};
 
-	const addSilhouette = (shipId: string) => {
+	const addSilhouette = (shipId: string, position?: { x: number; y: number }) => {
 		const base = ships.find((item) => item.id === shipId);
-		if (!base) return;
-		silhouettes = [
-			...silhouettes,
-			{ id: `${shipId}-sil-${crypto.randomUUID()}`, shipId, x: base.x + 70, y: base.y + 70 }
-		];
+		if (!base) return null;
+		const id = `${shipId}-sil-${crypto.randomUUID()}`;
+		const spawnX = position?.x ?? base.x + 70;
+		const spawnY = position?.y ?? base.y + 70;
+		silhouettes = [...silhouettes, { id, shipId, x: spawnX, y: spawnY }];
+		return id;
 	};
 
 	const removeSilhouette = (silhouetteId: string) => {
@@ -149,7 +325,16 @@
 	const onWheel = (event: WheelEvent) => {
 		event.preventDefault();
 		const delta = event.deltaY > 0 ? -0.05 : 0.05;
-		scale = Math.min(1.4, Math.max(0.05, scale + delta));
+		const container = event.currentTarget as HTMLElement;
+		const nextScale = Math.min(3.2, Math.max(minScale, scale + delta));
+		const bounds = container.getBoundingClientRect();
+		const cursorX = event.clientX - bounds.left;
+		const cursorY = event.clientY - bounds.top;
+		const worldX = (cursorX - panX) / scale;
+		const worldY = (cursorY - panY) / scale;
+		scale = nextScale;
+		panX = cursorX - worldX * scale;
+		panY = cursorY - worldY * scale;
 	};
 
 	const beginPan = (event: PointerEvent) => {
@@ -179,15 +364,13 @@
 		}
 	};
 
-	const loadBundled = () => {
+	const loadBundled = async () => {
 		const loaded = loadBundledShips();
 		loaderErrors = loaded.errors;
-		ships = loaded.ships.map((ship, index) => ({
-			id: ship.id,
-			ship,
-			x: 180 + index * 290,
-			y: 220 + (index % 2) * 160
-		}));
+		const seedShips = loaded.ships.map((ship) => ({ id: ship.id, ship }));
+		ships = layoutFleet(seedShips);
+		await updateMinScale();
+		centerFleetAtScale(minScale);
 	};
 
 	const openShip = (ship: Ship) => {
@@ -217,15 +400,12 @@
 				continue;
 			}
 			if (parsed.ship) {
-				ships = [
-					...ships,
-					{
-						id: `${parsed.ship.id}-${crypto.randomUUID()}`,
-						ship: parsed.ship,
-						x: 180 + ships.length * 180,
-						y: 140 + (ships.length % 3) * 120
-					}
+				const seedShips = [
+					...ships.map((item) => ({ id: item.id, ship: item.ship })),
+					{ id: `${parsed.ship.id}-${crypto.randomUUID()}`, ship: parsed.ship }
 				];
+				ships = layoutFleet(seedShips);
+				updateMinScale();
 				uploadSuccess = 'Upload complete. Ships added to fleet view.';
 			}
 		}
@@ -233,9 +413,11 @@
 	};
 
 	onMount(() => {
-		loadBundled();
+		void loadBundled();
 	});
 </script>
+
+<svelte:options runes={false} />
 
 <svelte:window on:pointermove={movePan} on:pointerup={(event) => { endPan(event); endDrag(); }} />
 
@@ -256,24 +438,54 @@
 	</header>
 
 	<section class="filters">
-		<label>
-			Universe
-			<select bind:value={universeFilter}>
-				<option value="all">All universes</option>
-				{#each universes as universe (universe)}
-					<option value={universe}>{universe}</option>
-				{/each}
-			</select>
-		</label>
-		<label>
-			Tag
-			<select bind:value={tagFilter}>
-				<option value="all">All tags</option>
-				{#each tags as tag (tag)}
-					<option value={tag}>{tag}</option>
-				{/each}
-			</select>
-		</label>
+		<div class="filter-field">
+			<span>Universe</span>
+			<DropdownMenu>
+				<DropdownMenuTrigger>
+					<Button variant="outline" class="filter-trigger">{getUniverseLabel()}</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start">
+					<DropdownMenuItem
+						on:select={() => {
+							universeFilter = [];
+						}}
+					>
+						All Universes
+					</DropdownMenuItem>
+					<DropdownMenuCheckboxGroup bind:value={universeFilter}>
+						{#each universes as universe (universe)}
+							<DropdownMenuCheckboxItem value={universe} closeOnSelect={false} on:mouseover={() => {}}>
+								{universe}
+							</DropdownMenuCheckboxItem>
+						{/each}
+					</DropdownMenuCheckboxGroup>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
+		<div class="filter-field">
+			<span>Tag</span>
+			<DropdownMenu>
+				<DropdownMenuTrigger>
+					<Button variant="outline" class="filter-trigger">{getTagLabel()}</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start">
+					<DropdownMenuItem
+						on:select={() => {
+							tagFilter = [];
+						}}
+					>
+						All Tags
+					</DropdownMenuItem>
+					<DropdownMenuCheckboxGroup bind:value={tagFilter}>
+						{#each tags as tag (tag)}
+							<DropdownMenuCheckboxItem value={tag} closeOnSelect={false}>
+								{tag}
+							</DropdownMenuCheckboxItem>
+						{/each}
+					</DropdownMenuCheckboxGroup>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
 		<label>
 			Min length (m)
 			<input type="number" min="0" bind:value={minLength} />
@@ -301,57 +513,64 @@
 		</section>
 	{/if}
 
-	<section
-		class="fleet"
-		on:wheel={onWheel}
-		on:pointerdown={beginPan}
-		role="application"
-		aria-label="Fleet comparison canvas"
-	>
-		<div class="stars"></div>
-		<div class="fleet-scene" style={`transform: translate(${panX}px, ${panY}px) scale(${scale});`}>
-			{#each ships as item (item.id)}
-				{@const ship = item.ship}
-				{@const highlighted = filteredIds.has(item.id)}
-				{#if !activeOnly || highlighted}
-					<button
-						class={`ship ${highlighted ? 'highlighted' : 'dimmed'}`}
-						style={`left:${item.x}px; top:${item.y}px; width:${getVisualWidth(ship)}px; height:${getVisualHeight(ship)}px;`}
-						on:click={() => openShip(ship)}
-						on:pointerdown={(event) => startDrag(event, 'ship', item.id, item.x, item.y)}
-					>
-						<img src={ship.images.main} alt={ship.name} draggable="false" />
-						<span class="label">{ship.name} · {ship.lengthMeters}m</span>
-						<span class="spawn" role="button" tabindex="0" on:click|stopPropagation={() => addSilhouette(item.id)} on:keydown={(event) => event.key === "Enter" && addSilhouette(item.id)}>+ silhouette</span>
-					</button>
-				{/if}
-			{/each}
+	<section class="fleet-layout">
+		<section
+			class="fleet"
+			{@attach attachFleetContainer}
+			on:wheel={onWheel}
+			on:pointerdown={beginPan}
+			role="application"
+			aria-label="Fleet comparison canvas"
+		>
+			<div class="stars"></div>
+			<div class="fleet-scene" style={`transform: translate(${panX}px, ${panY}px) scale(${scale});`}>
+				{#each ships as item (item.id)}
+					{@const ship = item.ship}
+					{@const isMatch = filteredIds.has(item.id)}
+					{@const highlightState = hasActiveFilters()
+						? isMatch
+							? 'highlighted'
+							: 'dimmed'
+						: ''}
+					{#if !activeOnly || isMatch}
+						<button
+							class={`ship ${highlightState}`}
+							style={`left:${item.x}px; top:${item.y}px; width:${getVisualWidth(ship)}px; height:${getVisualHeight(ship)}px;`}
+							on:click={() => openShip(ship)}
+							on:pointerdown={(event) => startDrag(event, 'ship', item.id, item.x, item.y)}
+						>
+							<img src={ship.images.main} alt={ship.name} draggable="false" />
+							<span class="label">{ship.name} · {ship.lengthMeters}m</span>
+						</button>
+					{/if}
+				{/each}
 
-			{#each silhouettes as silhouette (silhouette.id)}
-				{@const host = ships.find((item) => item.id === silhouette.shipId)}
-				{#if host}
-					<button
-						class="ship silhouette"
-						style={`left:${silhouette.x}px; top:${silhouette.y}px; width:${getVisualWidth(host.ship)}px; height:${getVisualHeight(host.ship)}px;`}
-						on:pointerdown={(event) =>
-							startDrag(event, 'silhouette', silhouette.id, silhouette.x, silhouette.y)}
-						on:dblclick={() => removeSilhouette(silhouette.id)}
-					>
-						<img src={host.ship.images.silhouette ?? host.ship.images.main} alt={`${host.ship.name} silhouette`} draggable="false" />
-						<span class="label">silhouette (double click to remove)</span>
-					</button>
-				{/if}
-			{/each}
-		</div>
+				{#each silhouettes as silhouette (silhouette.id)}
+					{@const host = ships.find((item) => item.id === silhouette.shipId)}
+					{#if host}
+						<button
+							class="ship silhouette"
+							style={`left:${silhouette.x}px; top:${silhouette.y}px; width:${getVisualWidth(host.ship)}px; height:${getVisualHeight(host.ship)}px;`}
+							on:pointerdown={(event) =>
+								startDrag(event, 'silhouette', silhouette.id, silhouette.x, silhouette.y)}
+							on:dblclick={() => removeSilhouette(silhouette.id)}
+						>
+							<img src={host.ship.images.silhouette ?? host.ship.images.main} alt={`${host.ship.name} silhouette`} draggable="false" />
+							<span class="label">silhouette (double click to remove)</span>
+						</button>
+					{/if}
+				{/each}
+			</div>
+		</section>
+
+		<aside class="format-note">
+			<h2>Ship File Format</h2>
+			<p>
+				Ship files are Markdown with YAML frontmatter. See <code>docs/ship-file-format.md</code> for the
+				complete schema and examples.
+			</p>
+		</aside>
 	</section>
-
-	<footer class="format-note">
-		<h2>Ship File Format</h2>
-		<p>
-			Ship files are Markdown with YAML frontmatter. See <code>docs/ship-file-format.md</code> for the
-			complete schema and examples.
-		</p>
-	</footer>
 </main>
 
 {#if selectedShip}
@@ -362,6 +581,9 @@
 				<button on:click={closeShip}>Close</button>
 			</header>
 			<p><strong>Universe:</strong> {selectedShip.universe}</p>
+			{#if selectedShip.fleetSegment}
+				<p><strong>Fleet segment:</strong> {selectedShip.fleetSegment}</p>
+			{/if}
 			<p><strong>Length:</strong> {selectedShip.lengthMeters} meters</p>
 			<p><strong>Tags:</strong> {selectedShip.tags.join(', ')}</p>
 			<img src={selectedShip.images.main} alt={selectedShip.name} />
@@ -375,7 +597,7 @@
 			{#if selectedShip.links?.length}
 				<ul>
 					{#each selectedShip.links as link (link.url)}
-						<li><a href={link.url} target="_blank" rel="noreferrer">{link.label}</a></li>
+						<li><a href={resolve(link.url)} target="_blank" rel="noreferrer">{link.label}</a></li>
 					{/each}
 				</ul>
 			{/if}
@@ -387,38 +609,210 @@
 {/if}
 
 <style>
-	.page {
+.page {
+	display: grid;
+	gap: 1rem;
+	padding: 1rem;
+	min-height: 100vh;
+	grid-template-rows: auto auto 1fr auto;
+	background: radial-gradient(circle at 20% 20%, #1f2937 0%, #020617 55%, #000 100%);
+	color: #e2e8f0;
+}
+
+.top-bar {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+
+.controls {
+	display: flex;
+	gap: .6rem;
+	align-items: flex-start;
+}
+
+button,
+input {
+	background: #0f172a;
+	border: 1px solid #334155;
+	color: #e2e8f0;
+	padding: .4rem .6rem;
+}
+
+.upload {
+	display: grid;
+	gap: .3rem;
+	font-size: .85rem;
+}
+
+.filters {
+	display: flex;
+	gap: .7rem;
+	flex-wrap: wrap;
+	align-items: end;
+}
+
+	.filters label,
+	.filter-field {
 		display: grid;
-		gap: 1rem;
-		padding: 1rem;
-		min-height: 100vh;
-		background: radial-gradient(circle at 20% 20%, #1f2937 0%, #020617 55%, #000 100%);
-		color: #e2e8f0;
+		font-size: .8rem;
+		gap: .2rem;
 	}
-	.top-bar { display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
-	.controls { display:flex; gap:.6rem; align-items:flex-start; }
-	button, select, input { background:#0f172a; border:1px solid #334155; color:#e2e8f0; padding:.4rem .6rem; }
-	.upload { display:grid; gap:.3rem; font-size:.85rem; }
-	.filters { display:flex; gap:.7rem; flex-wrap:wrap; align-items:end; }
-	.filters label { display:grid; font-size:.8rem; gap:.2rem; }
-	.toggle { display:flex !important; align-items:center; gap:.3rem; }
-	.messages { background:rgba(15,23,42,.7); border:1px solid #334155; padding:.7rem; }
-	.success { color:#86efac; }
-	.fleet { position:relative; overflow:hidden; border:1px solid #334155; min-height:520px; cursor:grab; }
-	.stars { position:absolute; inset:0; background-image:radial-gradient(white 1px, transparent 1px); background-size:36px 36px; opacity:.16; }
-	.fleet-scene { position:absolute; left:0; top:0; width:0; height:0; transform-origin:0 0; }
-	.ship { position:absolute; border:1px solid #64748b; background:transparent; padding:0; transform:translate(-50%, -50%); cursor:move; }
-	.ship img { width:100%; height:100%; object-fit:cover; pointer-events:none; display:block; }
-	.ship .label { position:absolute; left:0; bottom:-1.5rem; font-size:.68rem; white-space:nowrap; background:#020617cc; padding:0 .3rem; }
-	.ship .spawn { position:absolute; top:-1.3rem; right:0; font-size:.65rem; background:#0f172acc; padding:0 .35rem; border:1px dashed #64748b; }
-	.ship.highlighted { box-shadow:0 0 0 2px #38bdf8; }
-	.ship.dimmed { opacity:.3; }
-	.ship.silhouette { opacity:.65; border-style:dashed; filter:grayscale(1); }
-	.format-note { background:rgba(2,6,23,.8); border:1px solid #334155; padding:.7rem; }
-	.modal-backdrop { position:fixed; inset:0; background:#020617c7; display:grid; place-items:center; padding:1rem; }
-	.modal { width:min(720px, 96vw); max-height:90vh; overflow:auto; background:#0f172a; border:1px solid #334155; padding:1rem; display:grid; gap:.8rem; }
-	.modal header { display:flex; justify-content:space-between; }
-	.modal img { max-width:100%; border:1px solid #334155; }
-	.gallery { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:.5rem; }
-	pre { white-space:pre-wrap; background:#020617; border:1px solid #1e293b; padding:.6rem; }
+	.filter-trigger {
+		justify-content: space-between;
+		min-width: 12rem;
+	}
+
+.toggle {
+	display: flex !important;
+	align-items: center;
+	gap: .3rem;
+}
+
+.messages {
+	background: rgba(15, 23, 42, .7);
+	border: 1px solid #334155;
+	padding: .7rem;
+}
+
+.success {
+	color: #86efac;
+}
+
+.fleet-layout {
+	display: grid;
+	gap: 1rem;
+	min-height: 0;
+	grid-template-rows: 1fr auto;
+}
+
+.fleet {
+	position: relative;
+	overflow: hidden;
+	border: 1px solid #334155;
+	min-height: 0;
+	height: 100%;
+	cursor: grab;
+}
+
+.stars {
+	position: absolute;
+	inset: 0;
+	background-image: radial-gradient(white 1px, transparent 1px);
+	background-size: 36px 36px;
+	opacity: .16;
+}
+
+.fleet-scene {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 0;
+	height: 0;
+	transform-origin: 0 0;
+}
+
+.ship {
+	position: absolute;
+	border: 1px dashed #64748b;
+	background: transparent;
+	padding: 0;
+	transform: translate(-50%, -50%);
+	cursor: pointer;
+}
+
+.ship img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	pointer-events: none;
+	display: block;
+}
+
+.ship .label {
+	position: absolute;
+	left: 0;
+	bottom: -1.5rem;
+	font-size: .68rem;
+	white-space: nowrap;
+	background: #020617cc;
+	padding: 0 .3rem;
+}
+
+.ship.highlighted {
+	box-shadow: 0 0 0 2px #38bdf8;
+}
+
+.ship.dimmed {
+	opacity: .3;
+}
+
+.ship.silhouette {
+	opacity: .65;
+	border-style: dashed;
+	filter: grayscale(1);
+	cursor: grab;
+}
+
+.format-note {
+	background: rgba(2, 6, 23, .8);
+	border: 1px solid #334155;
+	padding: .7rem;
+}
+
+@media (min-width: 980px) {
+	.fleet-layout {
+		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+		grid-template-rows: 1fr;
+		align-items: stretch;
+	}
+
+	.format-note {
+		align-self: stretch;
+	}
+}
+
+.modal-backdrop {
+	position: fixed;
+	inset: 0;
+	background: #020617c7;
+	display: grid;
+	place-items: center;
+	padding: 1rem;
+}
+
+.modal {
+	width: min(720px, 96vw);
+	max-height: 90vh;
+	overflow: auto;
+	background: #0f172a;
+	border: 1px solid #334155;
+	padding: 1rem;
+	display: grid;
+	gap: .8rem;
+}
+
+.modal header {
+	display: flex;
+	justify-content: space-between;
+}
+
+.modal img {
+	max-width: 100%;
+	border: 1px solid #334155;
+}
+
+.gallery {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: .5rem;
+}
+
+pre {
+	white-space: pre-wrap;
+	background: #020617;
+	border: 1px solid #1e293b;
+	padding: .6rem;
+}
 </style>

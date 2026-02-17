@@ -1,6 +1,6 @@
 # Ship File Format
 
-Ship files are Markdown documents with YAML frontmatter.
+Ship files are Markdown documents with YAML frontmatter. They contain structured metadata about each ship along with a markdown description body that can include key details, lore, interesting facts, links to resources, and a gallery of images.
 
 ## Required fields
 
@@ -44,6 +44,20 @@ A markdown description of the ship including key details, lore, or interesting f
 - [Wiki](https://example.com/wiki)
 
 ```
+
+## Fleet clustering
+
+Bundled ships are grouped by universe and by optional fleet role so the app can cluster them on the render plane. The folder path is part of the grouping:
+
+```
+docs/ships/<universe>/<fleet-group?>/<ship>.md
+```
+
+Each universe can define its own fleet groups to match its ships. Ships not placed in a fleet group folder will be clustered by universe.
+
+## More examples
+
+See the [ships directory](/docs/ships) for more examples of ship files and **fleet groups**.
 
 ## Agent skill
 

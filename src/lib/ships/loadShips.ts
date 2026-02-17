@@ -1,22 +1,40 @@
 import { parseShipMarkdown } from './parseShip';
 import type { Ship } from './types';
 
-const bundledShipSources = import.meta.glob('./data/*.md', {
-	query: '?raw',
-	import: 'default',
-	eager: true
+const bundledShipSources = import.meta.glob('/docs/ships/**/*.md', {
+	as: 'raw',
+	eager: true,
 }) as Record<string, string>;
+
+const getFleetSegmentFromPath = (path: string): string | undefined => {
+	const parts = path.split('/').filter(Boolean)
+	const shipsIndex = parts.indexOf('ships')
+	if (shipsIndex === -1) return undefined
+	const universe = parts[shipsIndex + 1]
+	const segment = parts[shipsIndex + 2]
+	const fileName = parts[parts.length - 1]
+	if (!universe || !segment || segment === fileName) return undefined
+	return segment
+}
 
 export const loadBundledShips = (): { ships: Ship[]; errors: string[] } => {
 	const ships: Ship[] = [];
 	const errors: string[] = [];
-
-	for (const [path, source] of Object.entries(bundledShipSources)) {
+	const sourceEntries = Object.entries(bundledShipSources)
+	if (sourceEntries.length === 0) {
+		errors.push('No bundled ships found under docs/ships. Check the glob path and dev server restart.')
+		return { ships, errors }
+	}
+	for (const [path, source] of sourceEntries) {
 		const fileName = path.split('/').pop() ?? path;
 		const id = fileName.replace(/\.md$/, '');
 		const result = parseShipMarkdown(id, source);
 		if (result.success) {
-			ships.push(result.ship);
+			const fleetSegment = getFleetSegmentFromPath(path)
+			ships.push({
+				...result.ship,
+				fleetSegment
+			});
 		} else {
 			errors.push(`${fileName}: ${result.error.message}`);
 		}

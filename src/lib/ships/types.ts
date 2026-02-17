@@ -19,6 +19,7 @@ export type Ship = {
 	links?: ShipLink[];
 	descriptionMarkdown?: string;
 	heightMeters?: number;
+	fleetSegment?: string;
 };
 
 export type ShipParseError = {

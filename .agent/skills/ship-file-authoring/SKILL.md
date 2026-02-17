@@ -9,11 +9,23 @@ description: "Create valid ship Markdown files for the Starship Dimensions app."
 Create valid ship Markdown files for the Starship Dimensions app.
 
 ## Steps
-1. Create a file in `docs/ships` (for bundled examples) or any local `.md` file for uploads.
+1. Create a file in `docs/ships/<universe>/<fleet-group?>/` (for bundled examples) or any local `.md` file for uploads.
 2. Add YAML frontmatter wrapped in `---` markers.
 3. Include required keys: `name`, `universe`, `lengthMeters`.
 4. Prefer adding `images.main`, `tags`, and one `links` entry.
 5. Write a markdown description body including key details, lore, or interesting facts about the ship. As well as links to resources and a gallery of images if available.
+
+## Fleet clustering
+
+Bundled ships are grouped by universe and by optional fleet role so the app can cluster them on the render plane. Keep the folder path aligned with the intended grouping:
+
+- `docs/ships/Firefly/freighters/`
+- `docs/ships/Star Trek/command/`
+- `docs/ships/Star Wars/strike-craft/`
+
+Each universe can define its own fleet groups to match its ships.
+
+Ships not placed in a fleet group folder will be clustered by universe.
 
 ## Template
 
