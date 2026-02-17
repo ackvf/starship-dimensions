@@ -3,6 +3,15 @@
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import {
+		centerBoundsAtScale,
+		computeMinScale,
+		getFleetBounds,
+		getVisualHeight as getFleetVisualHeight,
+		getVisualWidth as getFleetVisualWidth,
+		layoutFleet
+	} from '$lib/fleet';
+	import type { FleetItem, Silhouette } from '$lib/fleet';
+	import {
 		DropdownMenu,
 		DropdownMenuCheckboxGroup,
 		DropdownMenuCheckboxItem,
@@ -13,20 +22,7 @@
 	} from '$lib/components/ui/dropdown-menu';
 	import { loadBundledShips, parseUploadedShipFile } from '$lib/ships';
 	import type { Ship } from '$lib/ships';
-
-	type FleetItem = {
-		id: string;
-		ship: Ship;
-		x: number;
-		y: number;
-	};
-
-	type Silhouette = {
-		id: string;
-		shipId: string;
-		x: number;
-		y: number;
-	};
+    import { MAX_SCALE, MIN_SCALE } from '$lib'
 
 	let ships: FleetItem[] = [];
 	let silhouettes: Silhouette[] = [];
@@ -40,7 +36,7 @@
 	let panY = 220;
 	const metersToPixels = 0.18;
 	let fleetContainer: HTMLElement | null = null;
-	let minScale = 0.05;
+	let minScale = MIN_SCALE;
 
 	const attachFleetContainer = (node: HTMLElement) => {
 		fleetContainer = node;
@@ -104,134 +100,34 @@
 
 	$: filteredIds = new Set(filteredShips.map((item) => item.id));
 
-	const getVisualWidth = (ship: Ship): number => Math.max(ship.lengthMeters * metersToPixels, 72);
-	const getVisualHeight = (ship: Ship): number => {
-		const ratio = ship.heightMeters ? ship.heightMeters / ship.lengthMeters : 0.22;
-		return Math.max(getVisualWidth(ship) * ratio, 28);
-	};
-
-	const getFleetBounds = () => {
-		if (!ships.length) return null;
-		const widths = ships.map((item) => getVisualWidth(item.ship));
-		const heights = ships.map((item) => getVisualHeight(item.ship));
-		const minX = Math.min(...ships.map((item, idx) => item.x - widths[idx] / 2));
-		const maxX = Math.max(...ships.map((item, idx) => item.x + widths[idx] / 2));
-		const minY = Math.min(...ships.map((item, idx) => item.y - heights[idx] / 2));
-		const maxY = Math.max(...ships.map((item, idx) => item.y + heights[idx] / 2));
-		return { minX, maxX, minY, maxY };
-	};
+	const getVisualWidth = (ship: Ship): number => getFleetVisualWidth(ship, metersToPixels);
+	const getVisualHeight = (ship: Ship): number => getFleetVisualHeight(ship, metersToPixels);
+	const getCurrentFleetBounds = () => getFleetBounds(ships, metersToPixels);
 
 	const updateMinScale = async () => {
 		await tick();
 		if (!fleetContainer) return;
-		const bounds = getFleetBounds();
+		const bounds = getCurrentFleetBounds();
 		if (!bounds) {
-			minScale = 0.05;
+			minScale = MIN_SCALE;
 			return;
 		}
-		const fleetWidth = Math.max(1, bounds.maxX - bounds.minX);
-		const fleetHeight = Math.max(1, bounds.maxY - bounds.minY);
-		const containerWidth = Math.max(1, fleetContainer.clientWidth);
-		const containerHeight = Math.max(1, fleetContainer.clientHeight);
-		const fitScale = Math.min(containerWidth / fleetWidth, containerHeight / fleetHeight);
-		minScale = Math.max(0.05, fitScale * 0.5);
+		minScale = computeMinScale(bounds, fleetContainer.clientWidth, fleetContainer.clientHeight);
 	};
 
 	const centerFleetAtScale = (targetScale: number) => {
 		if (!fleetContainer) return;
-		const bounds = getFleetBounds();
+		const bounds = getCurrentFleetBounds();
 		if (!bounds) return;
-		const containerWidth = Math.max(1, fleetContainer.clientWidth);
-		const containerHeight = Math.max(1, fleetContainer.clientHeight);
-		const centerX = (bounds.minX + bounds.maxX) / 2;
-		const centerY = (bounds.minY + bounds.maxY) / 2;
-		scale = targetScale;
-		panX = containerWidth / 2 - centerX * scale;
-		panY = containerHeight / 2 - centerY * scale;
-	};
-
-	const layoutFleet = (seedShips: Array<{ id: string; ship: Ship }>): FleetItem[] => {
-		const byGroup: Record<string, Array<{ id: string; ship: Ship }>> = {};
-		for (const seed of seedShips) {
-			const segment = seed.ship.fleetSegment ?? 'universe';
-			const key = `${seed.ship.universe}::${segment}`;
-			const group = byGroup[key] ?? [];
-			group.push(seed);
-			byGroup[key] = group;
-		}
-		const groupKeys = Object.keys(byGroup).sort((a, b) => a.localeCompare(b));
-		const items: FleetItem[] = [];
-		const groupSpacing = 160;
-		const rowMaxWidth = 1400;
-		let cursorX = 0;
-		let cursorY = 0;
-		let rowHeight = 0;
-
-		for (const key of groupKeys) {
-			const groupShips = byGroup[key] ?? [];
-			const placed: Array<{ id: string; ship: Ship; x: number; y: number; width: number; height: number }> = [];
-			const sorted = [...groupShips].sort((a, b) => b.ship.lengthMeters - a.ship.lengthMeters);
-
-			for (const seed of sorted) {
-				const width = getVisualWidth(seed.ship);
-				const height = getVisualHeight(seed.ship);
-				let x = 0;
-				let y = 0;
-				let placedOk = false;
-				const padding = 18 + Math.min(width, height) * 0.08;
-
-				for (let attempt = 0; attempt < 1200; attempt += 1) {
-					const angle = attempt * 0.55;
-					const radius = 12 + attempt * 6;
-					x = Math.cos(angle) * radius;
-					y = Math.sin(angle) * radius;
-					const overlaps = placed.some((other) =>
-						Math.abs(x - other.x) < (width + other.width) / 2 + padding &&
-						Math.abs(y - other.y) < (height + other.height) / 2 + padding
-					);
-					if (!overlaps) {
-						placedOk = true;
-						break;
-					}
-				}
-
-				if (!placedOk && placed.length) {
-					x = placed[placed.length - 1].x + width + padding;
-					y = placed[placed.length - 1].y;
-				}
-
-				placed.push({ id: seed.id, ship: seed.ship, x, y, width, height });
-			}
-
-			const minX = Math.min(...placed.map((item) => item.x - item.width / 2));
-			const maxX = Math.max(...placed.map((item) => item.x + item.width / 2));
-			const minY = Math.min(...placed.map((item) => item.y - item.height / 2));
-			const maxY = Math.max(...placed.map((item) => item.y + item.height / 2));
-			const groupWidth = maxX - minX;
-			const groupHeight = maxY - minY;
-
-			if (cursorX && cursorX + groupWidth > rowMaxWidth) {
-				cursorX = 0;
-				cursorY += rowHeight + groupSpacing;
-				rowHeight = 0;
-			}
-
-			const offsetX = cursorX - minX;
-			const offsetY = cursorY - minY;
-			for (const item of placed) {
-				items.push({
-					id: item.id,
-					ship: item.ship,
-					x: item.x + offsetX,
-					y: item.y + offsetY
-				});
-			}
-
-			cursorX += groupWidth + groupSpacing;
-			rowHeight = Math.max(rowHeight, groupHeight);
-		}
-
-		return items;
+		const centered = centerBoundsAtScale(
+			bounds,
+			targetScale,
+			Math.max(1, fleetContainer.clientWidth),
+			Math.max(1, fleetContainer.clientHeight)
+		);
+		scale = centered.scale;
+		panX = centered.panX;
+		panY = centered.panY;
 	};
 
 	const resetView = () => {
@@ -242,11 +138,12 @@
 
 	const fitFleet = () => {
 		if (!ships.length) return;
-		const widths = ships.map((item) => getVisualWidth(item.ship));
-		const minX = Math.min(...ships.map((item, idx) => item.x - widths[idx] / 2));
-		const maxX = Math.max(...ships.map((item, idx) => item.x + widths[idx] / 2));
-		const minY = Math.min(...ships.map((item) => item.y - 100));
-		const maxY = Math.max(...ships.map((item) => item.y + 100));
+		const bounds = getCurrentFleetBounds();
+		if (!bounds) return;
+		const minX = bounds.minX;
+		const maxX = bounds.maxX;
+		const minY = bounds.minY - 100;
+		const maxY = bounds.maxY + 100;
 		const fleetWidth = maxX - minX;
 		const fleetHeight = maxY - minY;
 		scale = Math.min(0.8, Math.max(0.08, Math.min(980 / fleetWidth, 420 / fleetHeight)));
@@ -326,7 +223,7 @@
 		event.preventDefault();
 		const delta = event.deltaY > 0 ? -0.05 : 0.05;
 		const container = event.currentTarget as HTMLElement;
-		const nextScale = Math.min(3.2, Math.max(minScale, scale + delta));
+		const nextScale = Math.min(MAX_SCALE, Math.max(minScale, scale + delta));
 		const bounds = container.getBoundingClientRect();
 		const cursorX = event.clientX - bounds.left;
 		const cursorY = event.clientY - bounds.top;
@@ -368,18 +265,14 @@
 		const loaded = loadBundledShips();
 		loaderErrors = loaded.errors;
 		const seedShips = loaded.ships.map((ship) => ({ id: ship.id, ship }));
-		ships = layoutFleet(seedShips);
+		ships = layoutFleet(seedShips, metersToPixels);
 		await updateMinScale();
 		centerFleetAtScale(minScale);
 	};
 
-	const openShip = (ship: Ship) => {
-		selectedShip = ship;
-	};
+	const openShip = (ship: Ship) => selectedShip = ship;
 
-	const closeShip = () => {
-		selectedShip = null;
-	};
+	const closeShip = () => selectedShip = null;
 
 	const onBackdropClick = (event: MouseEvent) => {
 		if (event.target === event.currentTarget) {
@@ -404,7 +297,7 @@
 					...ships.map((item) => ({ id: item.id, ship: item.ship })),
 					{ id: `${parsed.ship.id}-${crypto.randomUUID()}`, ship: parsed.ship }
 				];
-				ships = layoutFleet(seedShips);
+				ships = layoutFleet(seedShips, metersToPixels);
 				updateMinScale();
 				uploadSuccess = 'Upload complete. Ships added to fleet view.';
 			}
