@@ -20,6 +20,7 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 - [x] (2026-02-10 06:38Z) Added upload parsing flow with inline errors and documented the ship file format in docs and UI.
 - [x] (2026-02-10 06:43Z) Validated with check/lint/build and server-side tests; browser test project is blocked by missing Playwright browser binaries.
 - [x] (2026-02-10 06:38Z) Wrote an agent skill with templates and validation checklist for authoring ship files.
+- [x] (2026-09-30 21:08Z) Finalized this plan as completed and prepared it for archive naming in `.agent/archive`.
 
 ## Surprises & Discoveries
 
@@ -178,3 +179,5 @@ Plan change note: Rewrote the ExecPlan to follow [.agent/PLANS.md](/.agent/PLANS
 Plan change note (2026-02-10 05:31Z, GPT-5.2-Codex): Recorded repository exploration progress and a discovery confirming the ExecPlan/PLANS workflow so implementation starts with current living-document state.
 
 Plan change note (2026-02-10 06:44Z, GPT-5.2-Codex): Completed all remaining implementation milestones, updated progress/discoveries/decisions/outcomes with validation evidence, and documented environment constraints encountered during execution.
+
+Plan change note (2026-09-30 21:08Z, GPT-5.3-Codex): Finalized the completed ExecPlan, corrected minor wording, and archived it under a numbered, descriptive filename for long-term tracking.
