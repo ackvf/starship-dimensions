@@ -61,4 +61,4 @@ See the [ships directory](/docs/ships) for more examples of ship files and **fle
 
 ## Agent skill
 
-Use [ship-file-authoring](/.agent/skills/ship-file-authoring/SKILL.md) to generate consistent ship files quickly.
+Use [ship-file-authoring](/.agents/skills/ship-file-authoring/SKILL.md) to generate consistent ship files quickly.

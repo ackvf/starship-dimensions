@@ -2,7 +2,7 @@
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
-This plan must be maintained in accordance with [.agent/PLANS.md](/.agent/PLANS.md).
+This plan must be maintained in accordance with [.agents/PLANS.md](/.agents/PLANS.md).
 
 ## Purpose / Big Picture
 
@@ -20,14 +20,14 @@ Deliver a minimal but highly interactive web app where someone can explore and c
 - [x] (2026-02-10 06:38Z) Added upload parsing flow with inline errors and documented the ship file format in docs and UI.
 - [x] (2026-02-10 06:43Z) Validated with check/lint/build and server-side tests; browser test project is blocked by missing Playwright browser binaries.
 - [x] (2026-02-10 06:38Z) Wrote an agent skill with templates and validation checklist for authoring ship files.
-- [x] (2026-09-30 21:08Z) Finalized this plan as completed and prepared it for archive naming in `.agent/archive`.
+- [x] (2026-09-30 21:08Z) Finalized this plan as completed and prepared it for archive naming in `.agents/archive`.
 
 ## Surprises & Discoveries
 
 - Observation: Playwright browser binaries are not preinstalled in the environment, so the full `pnpm test` command cannot launch browser tests.
    Evidence: `pnpm test` fails with `Executable doesn't exist ... please run playwright install`, while `pnpm exec vitest --project server --run` passes.
 
-- Observation: The repository includes both [.agent/ExecPlan.md](/.agent/ExecPlan.md) and [.agent/PLANS.md](/.agent/PLANS.md), so plan updates should be recorded directly in this file as work progresses.
+- Observation: The repository includes both [.agents/ExecPlan.md](/.agents/ExecPlan.md) and [.agents/PLANS.md](/.agents/PLANS.md), so plan updates should be recorded directly in this file as work progresses.
    Evidence: Verified by inspecting root instructions and reading both documents during repository exploration.
 
 
@@ -144,7 +144,7 @@ The frontmatter is parsed and used in the UI, while the markdown body is rendere
 
 ## Interfaces and Dependencies
 
-The app will use SvelteKit and Svelte components in [src/lib/components](/src/lib/components). All UI components must use [shadcn-svelte](https://www.shadcn-svelte.com/docs/components) for consistency, accessibility, and maintainability. When a new UI component is needed, find it in the shadcn-svelte docs website and install it using pnpm as described in the [shadcn-svelte agent skill](/.agent/skills/shadcn-svelte/SKILL.md). If a component is not available, prefer building on top of shadcn-svelte primitives.
+The app will use SvelteKit and Svelte components in [src/lib/components](/src/lib/components). All UI components must use [shadcn-svelte](https://www.shadcn-svelte.com/docs/components) for consistency, accessibility, and maintainability. When a new UI component is needed, find it in the shadcn-svelte docs website and install it using pnpm as described in the [shadcn-svelte agent skill](/.agents/skills/shadcn-svelte/SKILL.md). If a component is not available, prefer building on top of shadcn-svelte primitives.
 
 Define the following data structures in [src/lib/ships/types.ts](/src/lib/ships/types.ts):
 
@@ -174,7 +174,7 @@ The parser in [src/lib/ships/parseShip.ts](/src/lib/ships/parseShip.ts) will acc
 
 Note on images: user uploads must reference external URLs. The app may use owner curated images stored under [static](/static) for bundled ships.
 
-Plan change note: Rewrote the ExecPlan to follow [.agent/PLANS.md](/.agent/PLANS.md), add the mandatory living sections, and encode confirmed decisions and full feature scope so the plan is self contained for a novice.
+Plan change note: Rewrote the ExecPlan to follow [.agents/PLANS.md](/.agents/PLANS.md), add the mandatory living sections, and encode confirmed decisions and full feature scope so the plan is self contained for a novice.
 
 Plan change note (2026-02-10 05:31Z, GPT-5.2-Codex): Recorded repository exploration progress and a discovery confirming the ExecPlan/PLANS workflow so implementation starts with current living-document state.
 

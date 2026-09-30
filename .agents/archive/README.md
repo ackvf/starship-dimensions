@@ -8,7 +8,7 @@ This folder stores archival ExecPlans, prompts, and reference material that shou
 
 ## What belongs here
 
-- Finished ExecPlans that have been moved out of the working `.agent/` folder
+- Finished ExecPlans that have been moved out of the working `.agents/` folder
 - Archived prompts used for one-off data collection
 - Reference material that should stay out of working context
 

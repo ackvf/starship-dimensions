@@ -1,8 +1,8 @@
 # ExecPlans
 
-When writing complex features or significant refactors, create and use an ExecPlan (as described in .agent/PLANS.md) from design to implementation. You can find existing ExecPlans in the `.agent/` folder.
+When writing complex features or significant refactors, create and use an ExecPlan (as described in .agents/PLANS.md) from design to implementation. You can find existing ExecPlans in the `.agents/` folder.
 
-Once an ExecPlan is finished, move it to the `.agent/archive/` directory.
+Once an ExecPlan is finished, move it to the `.agents/archive/` directory.
 
 # README files
 
@@ -10,7 +10,7 @@ Whenever there is a README.md file in a directory, be sure to read it and follow
 
 # Shadcn UI Components
 
-You should use shadcn-svelte UI Components for consistency. When adding or updating components, follow the guidance in `.agent/skills/shadcn-svelte/SKILL.md` for proper installation and usage with pnpm.
+You should use shadcn-svelte UI Components for consistency. When adding or updating components, follow the guidance in `.agents/skills/shadcn-svelte/SKILL.md` for proper installation and usage with pnpm.
 
 # MCP
 
