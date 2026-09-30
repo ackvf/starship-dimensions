@@ -12,8 +12,19 @@ Create valid ship Markdown files for the Starship Dimensions app.
 1. Create a file in `docs/ships/<universe>/<fleet-group?>/` (for bundled examples) or any local `.md` file for uploads.
 2. Add YAML frontmatter wrapped in `---` markers.
 3. Include required keys: `name`, `universe`, `lengthMeters`.
-4. Prefer adding `images.main`, `tags`, and one `links` entry.
+4. Prefer adding `images.main`, `images.silhouette`, `tags`, and one `links` entry.
 5. Write a markdown description body including key details, lore, or interesting facts about the ship. As well as links to resources and a gallery of images if available.
+
+Use both examples together:
+
+- Generic instructional template: `docs/ship-file-format.md`
+- Realistic upload-ready sample: `docs/example-ship.md`
+
+## Image rendering behavior
+
+- `images.gallery` in frontmatter is used by the app's structured gallery display.
+- Markdown body images render inline in the description/wiki content.
+- Inline markdown images are not automatically added to `images.gallery`.
 
 ## Fleet clustering
 
@@ -38,6 +49,7 @@ heightMeters: <optional number>
 tags: [tag-one, tag-two]
 images:
   main: https://dummyimage.com/900x220/224/eee&text=<Ship+name>
+  silhouette: https://dummyimage.com/900x220/111111/777777&text=<Ship+name+Silhouette>
   gallery:
     - https://dummyimage.com/800x320/223/fff&text=Gallery+1
 links:
