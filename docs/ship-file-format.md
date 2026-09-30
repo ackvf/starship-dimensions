@@ -15,7 +15,6 @@ Use this document's embedded example as a generic template. For a realistic uplo
 - `heightMeters`: Helps with on-screen aspect ratio. (required if `images.main` is missing)
 - `tags`: Array of tags.
 - `images.main`: URL for the ship image (placeholder used if missing).
-- `images.silhouette`: URL for an optional silhouette overlay image.
 - `images.gallery`: Additional image URLs used by the app's structured image gallery UI.
 - `links`: Array of `{ label, url }` entries.
 
@@ -36,7 +35,6 @@ heightMeters: 220 # optional, recommended when main image is missing
 tags: [cruiser, capital]
 images:
   main: https://dummyimage.com/950x220/223/eee&text=Example+Cruiser
-  silhouette: https://dummyimage.com/950x220/111111/777777&text=Silhouette
   gallery:
     - https://dummyimage.com/900x300/345/fff&text=Gallery+1
     - https://dummyimage.com/900x300/456/fff&text=Gallery+2

@@ -6,7 +6,6 @@ heightMeters: 142
 tags: [explorer, relay, long-range]
 images:
   main: https://dummyimage.com/1200x260/10243f/f4f1de&text=Aurora+Needle
-  silhouette: https://dummyimage.com/1200x260/111111/7a7a7a&text=Aurora+Needle+Silhouette
   gallery:
     - https://dummyimage.com/900x300/1f4b99/f4f1de&text=Dock+Profile
     - https://dummyimage.com/900x300/3b2c69/f4f1de&text=Engine+Array
@@ -42,5 +41,5 @@ The images below are included directly in the markdown body to illustrate the di
 This file intentionally includes:
 
 - required fields (`name`, `universe`, `lengthMeters`)
-- optional fields (`heightMeters`, `tags`, `images.silhouette`, `images.gallery`, `links`)
+- optional fields (`heightMeters`, `tags`, `images.gallery`, `links`)
 - markdown headings, bold text, and lists in the body

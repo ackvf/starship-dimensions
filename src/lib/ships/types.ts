@@ -1,6 +1,5 @@
 export type ShipImageSet = {
 	main: string;
-	silhouette?: string;
 	gallery?: string[];
 };
 

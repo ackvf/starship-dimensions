@@ -5,7 +5,6 @@ lengthMeters: 1400
 tags: [destroyer, imperial, capital]
 images:
   main: https://dummyimage.com/1600x260/1c2541/e0e1dd&text=Rimewolf-class+Destroyer
-  silhouette: https://dummyimage.com/1600x260/111111/666666&text=Silhouette
 links:
   - label: Fleet record
     url: https://example.com/star-wars/rimewolf-destroyer

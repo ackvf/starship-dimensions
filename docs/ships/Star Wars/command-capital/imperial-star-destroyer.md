@@ -5,7 +5,6 @@ lengthMeters: 1600
 tags: [capital, destroyer, military]
 images:
   main: https://dummyimage.com/1600x260/0b132b/e0e1dd&text=Imperial+Star+Destroyer
-  silhouette: https://dummyimage.com/1600x260/111111/666666&text=Silhouette
   gallery:
     - https://dummyimage.com/1200x500/1c2541/e0e1dd&text=Hangar+Deck
 links:

@@ -7,7 +7,7 @@ export type FleetItem = {
 	y: number;
 };
 
-export type Silhouette = {
+export type ShipDuplicate = {
 	id: string;
 	shipId: string;
 	x: number;

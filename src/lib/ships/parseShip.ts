@@ -148,7 +148,6 @@ const toShip = (id: string, data: Record<string, unknown>, descriptionMarkdown: 
 			: [],
 		images: {
 			main: mainImage,
-			silhouette: typeof images.silhouette === 'string' ? images.silhouette : undefined,
 			gallery
 		},
 		links: links.length > 0 ? links : undefined,

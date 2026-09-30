@@ -10,7 +10,7 @@
 		getVisualWidth as getFleetVisualWidth,
 		layoutFleet
 	} from '$lib/fleet';
-	import type { FleetItem, Silhouette } from '$lib/fleet';
+	import type { FleetItem, ShipDuplicate } from '$lib/fleet';
 	import {
 		DropdownMenu,
 		DropdownMenuCheckboxGroup,
@@ -25,7 +25,7 @@
     import { MAX_SCALE, MIN_SCALE } from '$lib'
 
 	let ships: FleetItem[] = [];
-	let silhouettes: Silhouette[] = [];
+	let duplicates: ShipDuplicate[] = [];
 	let selectedShip: Ship | null = null;
 	let loaderErrors: string[] = [];
 	let uploadErrors: string[] = [];
@@ -49,7 +49,7 @@
 
 	let dragState:
 		| {
-				type: 'ship' | 'silhouette';
+				type: 'ship' | 'duplicate';
 				id: string;
 				deltaX: number;
 				deltaY: number;
@@ -151,14 +151,14 @@
 		panY = 70 - minY * scale;
 	};
 
-	const startDrag = (event: PointerEvent, type: 'ship' | 'silhouette', id: string, x: number, y: number) => {
+	const startDrag = (event: PointerEvent, type: 'ship' | 'duplicate', id: string, x: number, y: number) => {
 		event.stopPropagation();
 		event.preventDefault();
 		if (type === 'ship') {
-			const created = addSilhouette(id, { x, y });
+			const created = addDuplicate(id, { x, y });
 			if (!created) return;
 			dragState = {
-				type: 'silhouette',
+				type: 'duplicate',
 				id: created,
 				deltaX: event.clientX / scale - x,
 				deltaY: event.clientY / scale - y
@@ -189,7 +189,7 @@
 					: item
 			);
 		} else {
-			silhouettes = silhouettes.map((item) =>
+			duplicates = duplicates.map((item) =>
 				item.id === dragState?.id
 					? {
 							...item,
@@ -205,18 +205,18 @@
 		dragState = null;
 	};
 
-	const addSilhouette = (shipId: string, position?: { x: number; y: number }) => {
+	const addDuplicate = (shipId: string, position?: { x: number; y: number }) => {
 		const base = ships.find((item) => item.id === shipId);
 		if (!base) return null;
-		const id = `${shipId}-sil-${crypto.randomUUID()}`;
+		const id = `${shipId}-dup-${crypto.randomUUID()}`;
 		const spawnX = position?.x ?? base.x + 70;
 		const spawnY = position?.y ?? base.y + 70;
-		silhouettes = [...silhouettes, { id, shipId, x: spawnX, y: spawnY }];
+		duplicates = [...duplicates, { id, shipId, x: spawnX, y: spawnY }];
 		return id;
 	};
 
-	const removeSilhouette = (silhouetteId: string) => {
-		silhouettes = silhouettes.filter((item) => item.id !== silhouetteId);
+	const removeDuplicate = (duplicateId: string) => {
+		duplicates = duplicates.filter((item) => item.id !== duplicateId);
 	};
 
 	const onWheel = (event: WheelEvent) => {
@@ -318,7 +318,7 @@
 	<header class="top-bar">
 		<div>
 			<h1>Starship Dimensions</h1>
-			<p>Compare fleets, scale silhouettes, and upload your own ship Markdown files.</p>
+			<p>Compare fleets, spawn draggable duplicates for scale checks, and upload your own ship Markdown files.</p>
 		</div>
 		<div class="controls">
 			<button on:click={fitFleet}>Fit Fleet</button>
@@ -438,18 +438,18 @@
 					{/if}
 				{/each}
 
-				{#each silhouettes as silhouette (silhouette.id)}
-					{@const host = ships.find((item) => item.id === silhouette.shipId)}
+				{#each duplicates as duplicate (duplicate.id)}
+					{@const host = ships.find((item) => item.id === duplicate.shipId)}
 					{#if host}
 						<button
-							class="ship silhouette"
-							style={`left:${silhouette.x}px; top:${silhouette.y}px; width:${getVisualWidth(host.ship)}px; height:${getVisualHeight(host.ship)}px;`}
+							class="ship duplicate"
+							style={`left:${duplicate.x}px; top:${duplicate.y}px; width:${getVisualWidth(host.ship)}px; height:${getVisualHeight(host.ship)}px;`}
 							on:pointerdown={(event) =>
-								startDrag(event, 'silhouette', silhouette.id, silhouette.x, silhouette.y)}
-							on:dblclick={() => removeSilhouette(silhouette.id)}
+								startDrag(event, 'duplicate', duplicate.id, duplicate.x, duplicate.y)}
+							on:dblclick={() => removeDuplicate(duplicate.id)}
 						>
-							<img src={host.ship.images.silhouette ?? host.ship.images.main} alt={`${host.ship.name} silhouette`} draggable="false" />
-							<span class="label">silhouette (double click to remove)</span>
+							<img src={host.ship.images.main} alt={`${host.ship.name} duplicate`} draggable="false" />
+							<span class="label duplicate-hint">(double click to remove)</span>
 						</button>
 					{/if}
 				{/each}
@@ -641,11 +641,21 @@ input {
 	opacity: .3;
 }
 
-.ship.silhouette {
+
+.ship.duplicate {
 	opacity: .65;
 	border-style: dashed;
-	filter: grayscale(1);
+	filter: grayscale(.5) saturate(.7);
 	cursor: grab;
+}
+
+.ship.duplicate .duplicate-hint {
+	display: none;
+}
+
+.ship.duplicate:hover .duplicate-hint,
+.ship.duplicate:focus-visible .duplicate-hint {
+	display: block;
 }
 
 .format-note {

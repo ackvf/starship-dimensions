@@ -5,7 +5,6 @@ lengthMeters: 96
 tags: [transport, civilian, freighter, retrofit]
 images:
   main: https://dummyimage.com/960x190/1c2541/e0e1dd&text=Iron+Kestrel
-  silhouette: https://dummyimage.com/960x190/222222/888888&text=Silhouette
 links:
   - label: Fleet registry
     url: https://example.com/firefly/iron-kestrel
