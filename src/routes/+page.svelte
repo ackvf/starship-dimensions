@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 	import MarkdownRenderer from '$lib/components/MarkdownRenderer.svelte';
@@ -7,6 +7,9 @@
 		centerBoundsAtScale,
 		computeMinScale,
 		getFleetBounds,
+		getImageVisualHeight as getFleetImageVisualHeight,
+		getImageVisualWidth as getFleetImageVisualWidth,
+		isSmallFramedShip,
 		getVisualHeight as getFleetVisualHeight,
 		getVisualWidth as getFleetVisualWidth,
 		layoutFleet
@@ -17,13 +20,12 @@
 		DropdownMenuCheckboxGroup,
 		DropdownMenuCheckboxItem,
 		DropdownMenuContent,
-		DropdownMenuLabel,
 		DropdownMenuItem,
 		DropdownMenuTrigger
 	} from '$lib/components/ui/dropdown-menu';
 	import { loadBundledShips, parseUploadedShipFile } from '$lib/ships';
 	import type { Ship } from '$lib/ships';
-    import { MAX_SCALE, MIN_SCALE } from '$lib'
+	import { MAX_SCALE, MIN_SCALE } from '$lib';
 
 	let ships: FleetItem[] = [];
 	let duplicates: ShipDuplicate[] = [];
@@ -31,11 +33,13 @@
 	let loaderErrors: string[] = [];
 	let uploadErrors: string[] = [];
 	let uploadSuccess = '';
+	let uploadSuccessTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	let scale = 0.25;
 	let panX = 160;
 	let panY = 220;
-	const metersToPixels = 0.18;
+	const metersToPixels = 1;
+	const gridCellMeters = 100;
 	let fleetContainer: HTMLElement | null = null;
 	let minScale = MIN_SCALE;
 
@@ -50,7 +54,15 @@
 
 	let dragState:
 		| {
-				type: 'ship' | 'duplicate';
+				type: 'ship';
+				id: string;
+				startClientX: number;
+				startClientY: number;
+				originX: number;
+				originY: number;
+		  }
+		| {
+				type: 'duplicate';
 				id: string;
 				deltaX: number;
 				deltaY: number;
@@ -103,6 +115,8 @@
 
 	const getVisualWidth = (ship: Ship): number => getFleetVisualWidth(ship, metersToPixels);
 	const getVisualHeight = (ship: Ship): number => getFleetVisualHeight(ship, metersToPixels);
+	const getImageVisualWidth = (ship: Ship): number => getFleetImageVisualWidth(ship, metersToPixels);
+	const getImageVisualHeight = (ship: Ship): number => getFleetImageVisualHeight(ship, metersToPixels);
 	const getCurrentFleetBounds = () => getFleetBounds(ships, metersToPixels);
 
 	const updateMinScale = async () => {
@@ -139,30 +153,47 @@
 
 	const fitFleet = () => {
 		if (!ships.length) return;
+		if (!fleetContainer) return;
 		const bounds = getCurrentFleetBounds();
 		if (!bounds) return;
-		const minX = bounds.minX;
-		const maxX = bounds.maxX;
-		const minY = bounds.minY - 100;
-		const maxY = bounds.maxY + 100;
-		const fleetWidth = maxX - minX;
-		const fleetHeight = maxY - minY;
-		scale = Math.min(0.8, Math.max(0.08, Math.min(980 / fleetWidth, 420 / fleetHeight)));
-		panX = 120 - minX * scale;
-		panY = 70 - minY * scale;
+
+		const worldPadding = 100;
+		const paddedBounds = {
+			minX: bounds.minX - worldPadding,
+			maxX: bounds.maxX + worldPadding,
+			minY: bounds.minY - worldPadding,
+			maxY: bounds.maxY + worldPadding
+		};
+
+		const screenPadding = 24;
+		const containerWidth = Math.max(1, fleetContainer.clientWidth - screenPadding * 2);
+		const containerHeight = Math.max(1, fleetContainer.clientHeight - screenPadding * 2);
+		const fleetWidth = Math.max(1, paddedBounds.maxX - paddedBounds.minX);
+		const fleetHeight = Math.max(1, paddedBounds.maxY - paddedBounds.minY);
+		const fitScale = Math.min(containerWidth / fleetWidth, containerHeight / fleetHeight);
+		const targetScale = Math.min(MAX_SCALE, Math.max(minScale, fitScale));
+		const centered = centerBoundsAtScale(
+			paddedBounds,
+			targetScale,
+			fleetContainer.clientWidth,
+			fleetContainer.clientHeight
+		);
+		scale = centered.scale;
+		panX = centered.panX;
+		panY = centered.panY;
 	};
 
 	const startDrag = (event: PointerEvent, type: 'ship' | 'duplicate', id: string, x: number, y: number) => {
 		event.stopPropagation();
 		event.preventDefault();
 		if (type === 'ship') {
-			const created = addDuplicate(id, { x, y });
-			if (!created) return;
 			dragState = {
-				type: 'duplicate',
-				id: created,
-				deltaX: event.clientX / scale - x,
-				deltaY: event.clientY / scale - y
+				type: 'ship',
+				id,
+				startClientX: event.clientX,
+				startClientY: event.clientY,
+				originX: x,
+				originY: y
 			};
 			return;
 		}
@@ -176,30 +207,43 @@
 
 	const updateDrag = (event: PointerEvent) => {
 		if (!dragState) return;
-		const worldX = event.clientX / scale - dragState.deltaX;
-		const worldY = event.clientY / scale - dragState.deltaY;
 
 		if (dragState.type === 'ship') {
-			ships = ships.map((item) =>
-				item.id === dragState?.id
-					? {
-							...item,
-							x: worldX,
-							y: worldY
-						}
-					: item
+			const moved = Math.hypot(
+				event.clientX - dragState.startClientX,
+				event.clientY - dragState.startClientY
 			);
-		} else {
-			duplicates = duplicates.map((item) =>
-				item.id === dragState?.id
-					? {
-							...item,
-							x: worldX,
-							y: worldY
-						}
-					: item
-			);
+			if (moved < 6) {
+				return;
+			}
+			const created = addDuplicate(dragState.id, {
+				x: dragState.originX,
+				y: dragState.originY
+			});
+			if (!created) {
+				dragState = null;
+				return;
+			}
+			dragState = {
+				type: 'duplicate',
+				id: created,
+				deltaX: event.clientX / scale - dragState.originX,
+				deltaY: event.clientY / scale - dragState.originY
+			};
 		}
+
+		if (!dragState || dragState.type !== 'duplicate') return;
+		const worldX = event.clientX / scale - dragState.deltaX;
+		const worldY = event.clientY / scale - dragState.deltaY;
+		duplicates = duplicates.map((item) =>
+			item.id === dragState?.id
+				? {
+						...item,
+						x: worldX,
+						y: worldY
+				  }
+				: item
+		);
 	};
 
 	const endDrag = () => {
@@ -275,10 +319,9 @@
 
 	const closeShip = () => selectedShip = null;
 
-	const onBackdropClick = (event: MouseEvent) => {
-		if (event.target === event.currentTarget) {
-			closeShip();
-		}
+	const openShipLink = (url: string) => {
+		const href = /^https?:\/\//i.test(url) ? url : resolve(url as '/');
+		window.open(href, '_blank', 'noopener,noreferrer');
 	};
 
 	const handleUpload = async (event: Event) => {
@@ -286,6 +329,7 @@
 		if (!target.files?.length) return;
 		uploadErrors = [];
 		uploadSuccess = '';
+		let addedCount = 0;
 
 		for (const file of Array.from(target.files)) {
 			const parsed = await parseUploadedShipFile(file);
@@ -300,11 +344,31 @@
 				];
 				ships = layoutFleet(seedShips, metersToPixels);
 				updateMinScale();
-				uploadSuccess = 'Upload complete. Ships added to fleet view.';
+				addedCount += 1;
 			}
+		}
+
+		if (addedCount > 0) {
+			uploadSuccess =
+				addedCount === 1
+					? 'Upload complete. 1 ship added.'
+					: `Upload complete. ${addedCount} ships added.`;
+			if (uploadSuccessTimeout) {
+				clearTimeout(uploadSuccessTimeout);
+			}
+			uploadSuccessTimeout = setTimeout(() => {
+				uploadSuccess = '';
+				uploadSuccessTimeout = null;
+			}, 3200);
 		}
 		target.value = '';
 	};
+
+	onDestroy(() => {
+		if (uploadSuccessTimeout) {
+			clearTimeout(uploadSuccessTimeout);
+		}
+	});
 
 	onMount(() => {
 		void loadBundled();
@@ -340,7 +404,7 @@
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start">
 					<DropdownMenuItem
-						on:select={() => {
+						onSelect={() => {
 							universeFilter = [];
 						}}
 					>
@@ -348,7 +412,7 @@
 					</DropdownMenuItem>
 					<DropdownMenuCheckboxGroup bind:value={universeFilter}>
 						{#each universes as universe (universe)}
-							<DropdownMenuCheckboxItem value={universe} closeOnSelect={false} on:mouseover={() => {}}>
+							<DropdownMenuCheckboxItem value={universe} closeOnSelect={false}>
 								{universe}
 							</DropdownMenuCheckboxItem>
 						{/each}
@@ -364,7 +428,7 @@
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start">
 					<DropdownMenuItem
-						on:select={() => {
+						onSelect={() => {
 							tagFilter = [];
 						}}
 					>
@@ -393,7 +457,7 @@
 		</label>
 	</section>
 
-	{#if loaderErrors.length || uploadErrors.length || uploadSuccess}
+	{#if loaderErrors.length || uploadErrors.length}
 		<section class="messages">
 			{#if loaderErrors.length}
 				<p><strong>Bundled parse errors:</strong></p>
@@ -403,8 +467,11 @@
 				<p><strong>Upload errors:</strong></p>
 				<ul>{#each uploadErrors as err (`upload-${err}`)}<li>{err}</li>{/each}</ul>
 			{/if}
-			{#if uploadSuccess}<p class="success">{uploadSuccess}</p>{/if}
 		</section>
+	{/if}
+
+	{#if uploadSuccess}
+		<p class="upload-toast" role="status" aria-live="polite">{uploadSuccess}</p>
 	{/if}
 
 	<section class="fleet-layout">
@@ -416,7 +483,10 @@
 			role="application"
 			aria-label="Fleet comparison canvas"
 		>
-			<div class="stars"></div>
+			<div
+				class="stars"
+				style={`background-size:${gridCellMeters * scale}px ${gridCellMeters * scale}px; background-position:${panX}px ${panY}px;`}
+			></div>
 			<div class="fleet-scene" style={`transform: translate(${panX}px, ${panY}px) scale(${scale});`}>
 				{#each ships as item (item.id)}
 					{@const ship = item.ship}
@@ -428,8 +498,8 @@
 						: ''}
 					{#if !activeOnly || isMatch}
 						<button
-							class={`ship ${highlightState}`}
-							style={`left:${item.x}px; top:${item.y}px; width:${getVisualWidth(ship)}px; height:${getVisualHeight(ship)}px;`}
+							class={`ship ${highlightState} ${isSmallFramedShip(ship) ? 'small-frame' : ''}`}
+							style={`left:${item.x}px; top:${item.y}px; width:${getVisualWidth(ship)}px; height:${getVisualHeight(ship)}px; --img-width:${getImageVisualWidth(ship)}px; --img-height:${getImageVisualHeight(ship)}px;`}
 							on:click={() => openShip(ship)}
 							on:pointerdown={(event) => startDrag(event, 'ship', item.id, item.x, item.y)}
 						>
@@ -443,8 +513,8 @@
 					{@const host = ships.find((item) => item.id === duplicate.shipId)}
 					{#if host}
 						<button
-							class="ship duplicate"
-							style={`left:${duplicate.x}px; top:${duplicate.y}px; width:${getVisualWidth(host.ship)}px; height:${getVisualHeight(host.ship)}px;`}
+							class={`ship duplicate ${isSmallFramedShip(host.ship) ? 'small-frame' : ''}`}
+							style={`left:${duplicate.x}px; top:${duplicate.y}px; width:${getVisualWidth(host.ship)}px; height:${getVisualHeight(host.ship)}px; --img-width:${getImageVisualWidth(host.ship)}px; --img-height:${getImageVisualHeight(host.ship)}px;`}
 							on:pointerdown={(event) =>
 								startDrag(event, 'duplicate', duplicate.id, duplicate.x, duplicate.y)}
 							on:dblclick={() => removeDuplicate(duplicate.id)}
@@ -455,62 +525,64 @@
 					{/if}
 				{/each}
 			</div>
+			<div class="scale-indicator" aria-hidden="true">
+				<span class="scale-zero">0</span>
+				<span class="scale-mark" style={`right:${10 * scale}px;`}>10m</span>
+				<span class="scale-mark" style={`right:${100 * scale}px;`}>100m</span>
+				<span class="scale-mark" style={`right:${1000 * scale}px;`}>1km</span>
+				<span class="scale-mark" style={`right:${10000 * scale}px;`}>10km</span>
+			</div>
 		</section>
 
 		<aside class="format-note">
-			<h2>Ship File Format</h2>
-			<p>
-				Ship files are Markdown with YAML frontmatter. See <code>docs/ship-file-format.md</code> for the
-				complete schema and examples.
-			</p>
-		</aside>
-	</section>
-</main>
-
-{#if selectedShip}
-	<div class="modal-backdrop" role="button" tabindex="0" on:click={onBackdropClick} on:keydown={(event) => event.key === "Escape" && closeShip()}>
-		<div class="modal" role="dialog" aria-modal="true" aria-label="Ship details" tabindex="-1">
-			<header>
-				<h2>{selectedShip.name}</h2>
-				<button on:click={closeShip}>Close</button>
-			</header>
-			<p><strong>Universe:</strong> {selectedShip.universe}</p>
-			{#if selectedShip.fleetSegment}
-				<p><strong>Fleet segment:</strong> {selectedShip.fleetSegment}</p>
-			{/if}
-			<p><strong>Length:</strong> {selectedShip.lengthMeters} meters</p>
-			<p><strong>Tags:</strong> {selectedShip.tags.join(', ')}</p>
-			<img src={selectedShip.images.main} alt={selectedShip.name} />
-			{#if selectedShip.images.gallery?.length}
-				<div class="gallery">
-					{#each selectedShip.images.gallery as image (image)}
-						<img src={image} alt={`${selectedShip.name} reference`} />
-					{/each}
-				</div>
-			{/if}
-			{#if selectedShip.links?.length}
-				<ul>
-					{#each selectedShip.links as link (link.url)}
-						<li><a href={resolve(link.url)} target="_blank" rel="noreferrer">{link.label}</a></li>
-					{/each}
-				</ul>
-			{/if}
-			{#if selectedShip.descriptionMarkdown}
+			{#if selectedShip}
+				<header class="sidebar-header">
+					<h2>{selectedShip.name}</h2>
+					<button on:click={closeShip}>Clear</button>
+				</header>
+				<p><strong>Universe:</strong> {selectedShip.universe}</p>
+				{#if selectedShip.fleetSegment}
+					<p><strong>Fleet segment:</strong> {selectedShip.fleetSegment}</p>
+				{/if}
+				<p><strong>Length:</strong> {selectedShip.lengthMeters}m</p>
+				<p><strong>Tags:</strong> {selectedShip.tags.join(', ')}</p>
+				{#if selectedShip.links?.length}
+					<div class="ship-links">
+						<p><strong>Links</strong></p>
+						<ul>
+							{#each selectedShip.links as link (link.url)}
+								<li>
+									<button class="link-button" type="button" on:click={() => openShipLink(link.url)}>
+										{link.label}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 				<div class="markdown-body">
 					<MarkdownRenderer markdown={selectedShip.descriptionMarkdown ?? ''} />
 				</div>
+			{:else}
+				<h2>Ship File Format</h2>
+				<p>
+					Ship files are Markdown with YAML frontmatter. See <code>docs/ship-file-format.md</code> for the
+					complete schema and examples.
+				</p>
 			{/if}
-		</div>
-	</div>
-{/if}
+		</aside>
+	</section>
+</main>
 
 <style>
 .page {
 	display: grid;
 	gap: 1rem;
 	padding: 1rem;
-	min-height: 100vh;
-	grid-template-rows: auto auto 1fr auto;
+	height: 100vh;
+	overflow: hidden;
+	box-sizing: border-box;
+	grid-template-rows: auto auto minmax(0, 1fr);
 	background: radial-gradient(circle at 20% 20%, #1f2937 0%, #020617 55%, #000 100%);
 	color: #e2e8f0;
 }
@@ -576,11 +648,30 @@ input {
 	color: #86efac;
 }
 
+.upload-toast {
+	position: fixed;
+	left: 50%;
+	bottom: 1rem;
+	transform: translateX(-50%);
+	background: rgba(6, 78, 59, .95);
+	color: #d1fae5;
+	border: 1px solid #10b981;
+	padding: .45rem .7rem;
+	font-size: .78rem;
+	line-height: 1.2;
+	border-radius: .4rem;
+	z-index: 50;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+	max-width: min(90vw, 380px);
+	text-align: center;
+}
+
 .fleet-layout {
 	display: grid;
 	gap: 1rem;
 	min-height: 0;
-	grid-template-rows: 1fr auto;
+	overflow: hidden;
+	grid-template-rows: minmax(0, 1fr) minmax(0, 38vh);
 }
 
 .fleet {
@@ -596,7 +687,7 @@ input {
 	position: absolute;
 	inset: 0;
 	background-image: radial-gradient(white 1px, transparent 1px);
-	background-size: 36px 36px;
+	background-size: 100px 100px;
 	opacity: .16;
 }
 
@@ -607,6 +698,35 @@ input {
 	width: 0;
 	height: 0;
 	transform-origin: 0 0;
+}
+
+.scale-indicator {
+	position: absolute;
+	right: .55rem;
+	bottom: .45rem;
+	width: 0;
+	height: 0;
+	pointer-events: none;
+	z-index: 5;
+}
+
+.scale-zero,
+.scale-mark {
+	position: absolute;
+	bottom: 0;
+	transform: translateX(50%);
+	font-size: .62rem;
+	line-height: 1;
+	white-space: nowrap;
+}
+
+.scale-zero {
+	right: 0;
+	color: #f1f5f9;
+}
+
+.scale-mark {
+	color: #cbd5e1;
 }
 
 .ship {
@@ -624,6 +744,20 @@ input {
 	object-fit: cover;
 	pointer-events: none;
 	display: block;
+}
+
+.ship.small-frame {
+	background: rgba(148, 163, 184, 0.05);
+}
+
+.ship.small-frame img {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: var(--img-width);
+	height: var(--img-height);
+	object-fit: contain;
 }
 
 .ship .label {
@@ -665,54 +799,49 @@ input {
 	background: rgba(2, 6, 23, .8);
 	border: 1px solid #334155;
 	padding: .7rem;
+	min-height: 0;
+	overflow: auto;
+	max-height: 100%;
+}
+
+.sidebar-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: .6rem;
 }
 
 @media (min-width: 980px) {
 	.fleet-layout {
 		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-		grid-template-rows: 1fr;
+		grid-template-rows: minmax(0, 1fr);
 		align-items: stretch;
 	}
 
 	.format-note {
+		height: 100%;
 		align-self: stretch;
+		max-height: 100%;
 	}
 }
 
-.modal-backdrop {
-	position: fixed;
-	inset: 0;
-	background: #020617c7;
-	display: grid;
-	place-items: center;
-	padding: 1rem;
+.ship-links ul {
+	margin: .3rem 0 .8rem;
+	padding-left: 1rem;
 }
 
-.modal {
-	width: min(720px, 96vw);
-	max-height: 90vh;
-	overflow: auto;
-	background: #0f172a;
-	border: 1px solid #334155;
-	padding: 1rem;
-	display: grid;
-	gap: .8rem;
+.link-button {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: #93c5fd;
+	text-decoration: underline;
+	cursor: pointer;
+	font: inherit;
 }
 
-.modal header {
-	display: flex;
-	justify-content: space-between;
-}
-
-.modal img {
-	max-width: 100%;
-	border: 1px solid #334155;
-}
-
-.gallery {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-	gap: .5rem;
+.link-button:hover {
+	color: #bfdbfe;
 }
 
 .markdown-body {
