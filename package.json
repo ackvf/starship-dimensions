@@ -44,6 +44,7 @@
 	"dependencies": {
 		"@fontsource-variable/jetbrains-mono": "^5.2.8",
 		"@tailwindcss/vite": "^4.1.18",
+		"marked": "^18.0.14",
 		"mode-watcher": "^1.1.0",
 		"shadcn": "^3.8.4",
 		"svelte": "^5.49.2",

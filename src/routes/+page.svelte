@@ -2,6 +2,7 @@
 	import { onMount, tick } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
+	import MarkdownRenderer from '$lib/components/MarkdownRenderer.svelte';
 	import {
 		centerBoundsAtScale,
 		computeMinScale,
@@ -495,7 +496,9 @@
 				</ul>
 			{/if}
 			{#if selectedShip.descriptionMarkdown}
-				<pre>{selectedShip.descriptionMarkdown}</pre>
+				<div class="markdown-body">
+					<MarkdownRenderer markdown={selectedShip.descriptionMarkdown ?? ''} />
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -712,10 +715,46 @@ input {
 	gap: .5rem;
 }
 
-pre {
-	white-space: pre-wrap;
+.markdown-body {
 	background: #020617;
 	border: 1px solid #1e293b;
-	padding: .6rem;
+	padding: .7rem;
+	border-radius: .35rem;
+}
+
+.markdown-body :global(h1),
+.markdown-body :global(h2),
+.markdown-body :global(h3) {
+	margin: .8rem 0 .5rem;
+	line-height: 1.2;
+}
+
+.markdown-body :global(p),
+.markdown-body :global(ul),
+.markdown-body :global(ol) {
+	margin: .45rem 0;
+}
+
+.markdown-body :global(ul),
+.markdown-body :global(ol) {
+	padding-left: 1.2rem;
+}
+
+.markdown-body :global(a) {
+	color: #93c5fd;
+}
+
+.markdown-body :global(img) {
+	max-width: 100%;
+	height: auto;
+	border: 1px solid #334155;
+	margin: .35rem 0;
+}
+
+.markdown-body :global(code) {
+	background: #0f172a;
+	padding: .1rem .28rem;
+	border-radius: .2rem;
+	overflow-wrap: anywhere;
 }
 </style>
