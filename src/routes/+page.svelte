@@ -130,27 +130,6 @@
 		minScale = computeMinScale(bounds, fleetContainer.clientWidth, fleetContainer.clientHeight);
 	};
 
-	const centerFleetAtScale = (targetScale: number) => {
-		if (!fleetContainer) return;
-		const bounds = getCurrentFleetBounds();
-		if (!bounds) return;
-		const centered = centerBoundsAtScale(
-			bounds,
-			targetScale,
-			Math.max(1, fleetContainer.clientWidth),
-			Math.max(1, fleetContainer.clientHeight)
-		);
-		scale = centered.scale;
-		panX = centered.panX;
-		panY = centered.panY;
-	};
-
-	const resetView = () => {
-		scale = 0.25;
-		panX = 160;
-		panY = 220;
-	};
-
 	const fitFleet = () => {
 		if (!ships.length) return;
 		if (!fleetContainer) return;
@@ -312,7 +291,7 @@
 		const seedShips = loaded.ships.map((ship) => ({ id: ship.id, ship }));
 		ships = layoutFleet(seedShips, metersToPixels);
 		await updateMinScale();
-		centerFleetAtScale(minScale);
+		fitFleet();
 	};
 
 	const openShip = (ship: Ship) => selectedShip = ship;
@@ -387,7 +366,6 @@
 		</div>
 		<div class="controls">
 			<button on:click={fitFleet}>Fit Fleet</button>
-			<button on:click={resetView}>Reset View</button>
 			<label class="upload">
 				Upload ship files
 				<input type="file" accept=".md,text/markdown" multiple on:change={handleUpload} />
@@ -550,7 +528,7 @@
 					<div class="ship-links">
 						<p><strong>Links</strong></p>
 						<ul>
-							{#each selectedShip.links as link (link.url)}
+							{#each selectedShip.links as link, index (index)}
 								<li>
 									<button class="link-button" type="button" on:click={() => openShipLink(link.url)}>
 										{link.label}

@@ -19,7 +19,7 @@
 
 <svelte:options runes={false} />
 
-{#each tokens as token (token.raw)}
+{#each tokens as token, index (index)}
 	{#if token.type === 'text' || token.type === 'escape'}
 		{token.text}
 	{:else if token.type === 'strong'}
